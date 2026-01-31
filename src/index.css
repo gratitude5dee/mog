@@ -1,0 +1,194 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Monad Music - Dark Theme Design System
+   Mobile-first music streaming platform with crypto payments
+   All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    /* Editorial Light Mode - Warm beige palette (DEFAULT) */
+    --background: 38 35% 78%;
+    --foreground: 30 15% 18%;
+
+    --card: 40 40% 94%;
+    --card-foreground: 30 15% 18%;
+
+    --popover: 40 40% 94%;
+    --popover-foreground: 30 15% 18%;
+
+    --primary: 255 32% 35%;
+    --primary-foreground: 40 40% 94%;
+
+    --secondary: 38 30% 72%;
+    --secondary-foreground: 30 15% 18%;
+
+    --muted: 38 25% 70%;
+    --muted-foreground: 30 15% 40%;
+
+    --accent: 32 55% 65%;
+    --accent-foreground: 30 15% 18%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 32 40% 70%;
+    --input: 38 30% 85%;
+    --ring: 255 32% 35%;
+
+    --radius: 0.75rem;
+
+    /* Brand colors */
+    --brand: 255 32% 35%;
+    --brand-foreground: 40 40% 94%;
+    --brand-muted: 255 30% 50%;
+
+    /* Player colors - Keep dark for contrast */
+    --player-background: 30 15% 18%;
+    --player-foreground: 40 40% 94%;
+
+    /* Success/Warning */
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 0%;
+
+    /* Sidebar */
+    --sidebar-background: 40 40% 94%;
+    --sidebar-foreground: 30 15% 18%;
+    --sidebar-primary: 255 32% 35%;
+    --sidebar-primary-foreground: 40 40% 94%;
+    --sidebar-accent: 38 30% 72%;
+    --sidebar-accent-foreground: 30 15% 18%;
+    --sidebar-border: 32 40% 70%;
+    --sidebar-ring: 255 32% 35%;
+
+    /* Landing page colors - warm editorial palette */
+    --landing-beige: 38 35% 78%;
+    --landing-violet: 255 32% 35%;
+    --landing-copper: 32 55% 65%;
+    --landing-cream: 40 40% 94%;
+    --landing-charcoal: 30 15% 18%;
+    --landing-coral: 10 70% 65%;
+    --landing-teal: 175 50% 35%;
+  }
+
+  .dark {
+    /* Dark mode - default for music app */
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+
+    --card: 240 10% 6%;
+    --card-foreground: 0 0% 98%;
+
+    --popover: 240 10% 6%;
+    --popover-foreground: 0 0% 98%;
+
+    --primary: 262 83% 58%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 240 5% 15%;
+    --secondary-foreground: 0 0% 98%;
+
+    --muted: 240 5% 15%;
+    --muted-foreground: 240 5% 64.9%;
+
+    --accent: 262 83% 58%;
+    --accent-foreground: 0 0% 100%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 240 5% 17%;
+    --input: 240 5% 17%;
+    --ring: 262 83% 58%;
+
+    /* Brand colors */
+    --brand: 262 83% 58%;
+    --brand-foreground: 0 0% 100%;
+    --brand-muted: 262 40% 20%;
+
+    /* Player colors */
+    --player-background: 240 10% 6%;
+    --player-foreground: 0 0% 98%;
+
+    /* Success/Warning */
+    --success: 142 76% 36%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 0%;
+
+    /* Sidebar */
+    --sidebar-background: 240 10% 6%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 262 83% 58%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 5% 15%;
+    --sidebar-accent-foreground: 0 0% 98%;
+    --sidebar-border: 240 5% 17%;
+    --sidebar-ring: 262 83% 58%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+
+  /* Mobile-first touch optimizations */
+  html {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  /* Custom scrollbar for dark theme */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--background));
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted));
+    border-radius: 3px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground));
+  }
+}
+
+@layer utilities {
+  /* Glass effect for cards */
+  .glass {
+    background: hsl(var(--card) / 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  /* Gradient text */
+  .gradient-text {
+    background: linear-gradient(135deg, hsl(var(--primary)), hsl(262 83% 70%));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* Safe area padding for mobile */
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  .safe-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+}
