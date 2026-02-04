@@ -1,6 +1,6 @@
 // Unified engagement types for cross-content interaction
 
-export type ContentType = 'track' | 'video' | 'article';
+export type ContentType = 'track' | 'video' | 'article' | 'mog_post';
 
 export interface EngagementCounts {
   likes_count: number;

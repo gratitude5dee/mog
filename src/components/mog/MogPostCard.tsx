@@ -16,6 +16,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
 import { useWallet } from "@/contexts/WalletContext";
 import { toast } from "sonner";
+import { useEngagementPayout } from "@/hooks/useEngagementPayout";
 
 interface MogPostCardProps {
   post: MogPost;
@@ -25,6 +26,10 @@ interface MogPostCardProps {
 
 export function MogPostCard({ post, isActive, onProfileClick }: MogPostCardProps) {
   const { address } = useWallet();
+  const { triggerPayout } = useEngagementPayout({ 
+    contentType: 'mog_post', 
+    contentId: post.id 
+  });
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
@@ -110,6 +115,8 @@ export function MogPostCard({ post, isActive, onProfileClick }: MogPostCardProps
           post_id: post.id,
           user_wallet: address.toLowerCase()
         });
+        // Trigger $5DEE payout to creator
+        triggerPayout('like');
       } else {
         await supabase.from('mog_likes')
           .delete()
@@ -139,6 +146,8 @@ export function MogPostCard({ post, isActive, onProfileClick }: MogPostCardProps
           user_wallet: address.toLowerCase()
         });
         toast.success('Saved to bookmarks');
+        // Trigger $5DEE payout to creator
+        triggerPayout('bookmark');
       } else {
         await supabase.from('mog_bookmarks')
           .delete()
@@ -160,6 +169,8 @@ export function MogPostCard({ post, isActive, onProfileClick }: MogPostCardProps
           title: post.title || "Check out this Mog",
           url: shareUrl,
         });
+        // Trigger $5DEE payout to creator on successful share
+        triggerPayout('share');
         return;
       } catch {
         // Fall through to clipboard
@@ -169,6 +180,8 @@ export function MogPostCard({ post, isActive, onProfileClick }: MogPostCardProps
     if (navigator.clipboard) {
       await navigator.clipboard.writeText(shareUrl);
       toast.success("Link copied to clipboard");
+      // Trigger $5DEE payout to creator on clipboard share
+      triggerPayout('share');
     }
   };
 

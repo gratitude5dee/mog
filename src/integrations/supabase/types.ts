@@ -7499,6 +7499,57 @@ export type Database = {
         }
         Relationships: []
       }
+      user_karma: {
+        Row: {
+          actions_given: number | null
+          actions_received: number | null
+          bookmarks_earned: number | null
+          comments_earned: number | null
+          created_at: string | null
+          karma: number | null
+          last_action_at: string | null
+          likes_earned: number | null
+          shares_earned: number | null
+          total_earned: number | null
+          total_spent: number | null
+          updated_at: string | null
+          views_earned: number | null
+          wallet_address: string
+        }
+        Insert: {
+          actions_given?: number | null
+          actions_received?: number | null
+          bookmarks_earned?: number | null
+          comments_earned?: number | null
+          created_at?: string | null
+          karma?: number | null
+          last_action_at?: string | null
+          likes_earned?: number | null
+          shares_earned?: number | null
+          total_earned?: number | null
+          total_spent?: number | null
+          updated_at?: string | null
+          views_earned?: number | null
+          wallet_address: string
+        }
+        Update: {
+          actions_given?: number | null
+          actions_received?: number | null
+          bookmarks_earned?: number | null
+          comments_earned?: number | null
+          created_at?: string | null
+          karma?: number | null
+          last_action_at?: string | null
+          likes_earned?: number | null
+          shares_earned?: number | null
+          total_earned?: number | null
+          total_spent?: number | null
+          updated_at?: string | null
+          views_earned?: number | null
+          wallet_address?: string
+        }
+        Relationships: []
+      }
       user_preferences: {
         Row: {
           artists: string[] | null
