@@ -3523,6 +3523,63 @@ export type Database = {
           },
         ]
       }
+      mog_agent_profiles: {
+        Row: {
+          api_key: string
+          avatar_url: string | null
+          created_at: string | null
+          description: string | null
+          follower_count: number | null
+          following_count: number | null
+          id: string
+          is_active: boolean | null
+          is_verified: boolean | null
+          karma: number | null
+          last_active_at: string | null
+          moltbook_id: string
+          name: string
+          post_count: number | null
+          updated_at: string | null
+          wallet_address: string
+        }
+        Insert: {
+          api_key?: string
+          avatar_url?: string | null
+          created_at?: string | null
+          description?: string | null
+          follower_count?: number | null
+          following_count?: number | null
+          id?: string
+          is_active?: boolean | null
+          is_verified?: boolean | null
+          karma?: number | null
+          last_active_at?: string | null
+          moltbook_id: string
+          name: string
+          post_count?: number | null
+          updated_at?: string | null
+          wallet_address: string
+        }
+        Update: {
+          api_key?: string
+          avatar_url?: string | null
+          created_at?: string | null
+          description?: string | null
+          follower_count?: number | null
+          following_count?: number | null
+          id?: string
+          is_active?: boolean | null
+          is_verified?: boolean | null
+          karma?: number | null
+          last_active_at?: string | null
+          moltbook_id?: string
+          name?: string
+          post_count?: number | null
+          updated_at?: string | null
+          wallet_address?: string
+        }
+        Relationships: []
+      }
       mog_bookmarks: {
         Row: {
           created_at: string | null
@@ -8331,6 +8388,18 @@ export type Database = {
         }[]
       }
       get_waitlist_count: { Args: never; Returns: number }
+      increment_mog_post_comments: {
+        Args: { increment_by?: number; post_id: string }
+        Returns: undefined
+      }
+      increment_mog_post_likes: {
+        Args: { increment_by?: number; post_id: string }
+        Returns: undefined
+      }
+      increment_mog_post_views: {
+        Args: { increment_by?: number; post_id: string }
+        Returns: undefined
+      }
       is_authenticated_user: {
         Args: { requested_user_id: string }
         Returns: boolean
