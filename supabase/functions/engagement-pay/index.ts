@@ -76,11 +76,22 @@ serve(async (req) => {
     }
 
     // Get creator wallet from content table
-    const tableName = content_type === 'track' ? 'music_tracks' 
-      : content_type === 'video' ? 'music_videos' 
-      : 'articles';
+    let tableName: string;
+    let walletField: string;
     
-    const walletField = content_type === 'article' ? 'author_wallet' : 'artist_wallet';
+    if (content_type === 'track') {
+      tableName = 'music_tracks';
+      walletField = 'artist_wallet';
+    } else if (content_type === 'video') {
+      tableName = 'music_videos';
+      walletField = 'artist_wallet';
+    } else if (content_type === 'mog_post') {
+      tableName = 'mog_posts';
+      walletField = 'creator_wallet';
+    } else {
+      tableName = 'articles';
+      walletField = 'author_wallet';
+    }
     
     const { data: content, error: contentError } = await supabase
       .from(tableName)
