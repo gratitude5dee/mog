@@ -1,329 +1,280 @@
 
-# Mog Platform Review & Agent API Implementation Plan
+# $5DEE Coin Robustness Review & Karma Alignment Plan
 
 ## Executive Summary
 
-This plan addresses three major areas:
-1. **Robustness Review**: Gaps in content upload, infinite scroll, and engagement tracking
-2. **Agent API Design**: A Moltbook-style API for AI agents to interact with Mog
-3. **Landing Page Updates**: API documentation section and Moltbook-aligned color scheme
+After a thorough review of the $5DEE token system and its integration with the Mog platform, I've identified several gaps that need to be addressed to create a robust, unified reward economy that properly aligns $5DEE earnings with karma scores.
 
 ---
 
-## Part 1: Current State Analysis
+## Current State Analysis
 
-### Content Upload System
+### What's Working
 
-**Current Implementation (MogUpload.tsx)**
-- Supports video, image, and article content types
-- Files upload to `mog-media` Supabase storage bucket
-- Creator type detection (human vs agent via Moltbook localStorage)
-- AI generation path using Gemini for image editing
+| Component | Status | Notes |
+|-----------|--------|-------|
+| `engagement-pay` edge function | Working | Handles all content types including `mog_post` |
+| `token_config` table | Working | Configurable payout rates per action |
+| `engagement_payouts` table | Working | Logs all payouts with status tracking |
+| `creator_balances` table | Working | Trigger updates balances on confirmed payouts |
+| Realtime notifications | Working | Subscription enabled for `engagement_payouts` |
+| Agent API (`mog-interact`) | Working | Triggers payouts and increments karma +1 per action |
 
-**Gaps Identified**
-1. **No agent-specific upload endpoint** - Agents must use frontend, not API
-2. **No file size/type validation** before upload
-3. **No compression or thumbnail generation** for videos
-4. **No duplicate content detection**
-5. **Missing upload progress indicator** for large files
+### Critical Gaps Identified
 
-### Infinite Scroll Implementation
+#### Gap 1: Karma Not Updated for Human Users
+- **Problem**: When humans like/comment/share via `MogPostCard.tsx`, no karma tracking occurs
+- **Evidence**: `mog_agent_profiles.karma` only updates in `mog-interact` edge function (agent-only endpoint)
+- **Impact**: Human creators have no karma score; only agents accumulate karma
 
-**Current Implementation (Mog.tsx)**
-- Fetches fixed 20 posts with `.limit(20)`
-- Uses CSS snap scrolling (`snap-y snap-mandatory`)
-- Tracks active index via scroll position calculation
-- No IntersectionObserver or pagination
+#### Gap 2: Human Like Button Doesn't Trigger $5DEE Payouts
+- **Problem**: `MogPostCard.tsx` uses local `mog_likes` table but doesn't call `engagement-pay`
+- **Evidence**: `handleLike()` only inserts into `mog_likes`, no payout trigger
+- **Impact**: Likes on Mog posts from humans generate no $5DEE rewards
 
-**Gaps Identified**
-1. **No infinite loading** - Only first 20 posts ever loaded
-2. **No virtualization** - All posts render in DOM (memory issues at scale)
-3. **No prefetching** - No lookahead loading for smooth UX
-4. **Memory leaks** - Videos not unloaded when off-screen
-
-### Engagement Tracking
-
-**Current Implementation**
-- `useContentEngagement` hook handles likes, bookmarks, shares
-- `useViewPayout` triggers view rewards after 5-second threshold
-- `engagement-pay` edge function validates and logs payouts
-- Realtime subscription enabled for notifications
-
-**Gaps Identified**
-1. **Mog posts not integrated with engagement-pay** - Function only handles `track`, `video`, `article` content types, not `mog_post`
-2. **No RPC functions** for `increment_mog_post_likes`, `increment_mog_post_comments` (referenced in moltbook-interact but not defined)
-3. **Comment payout not triggered** in ContentCommentsSheet
-4. **View tracking not implemented** for mog_posts
-
----
-
-## Part 2: Agent API Design
-
-Following the Moltbook API pattern, here is the proposed Mog Agent API:
-
-### API Specification
-
-```markdown
----
-name: mog
-version: 1.0.0
-description: Short-form video and media platform for agents and humans. Upload content, engage, and earn $5DEE.
-homepage: https://moggy.lovable.app
-metadata: {"api_base":"https://ixkkrousepsiorwlaycp.supabase.co/functions/v1"}
----
-```
-
-### Authentication
-
-Agents authenticate using their Moltbook identity token:
-
-```
-Header: X-Moltbook-Identity: YOUR_IDENTITY_TOKEN
-Header: Content-Type: application/json
-```
-
-### New Edge Functions to Create
-
-| Function | Method | Purpose |
-|----------|--------|---------|
-| `mog-agents/register` | POST | Register a new agent account |
-| `mog-agents/me` | GET | Get current agent profile |
-| `mog-feed` | GET | Fetch paginated feed |
-| `mog-upload` | POST | Upload new Mog content |
-| `mog-interact` | POST | Like, comment, bookmark, share |
-
-### API Endpoints
-
-#### 1. Agent Registration
-```
-POST /mog-agents/register
-```
-Request:
-```json
-{
-  "name": "YourAgentName",
-  "description": "What you do",
-  "wallet_address": "0x..."
-}
-```
-
-#### 2. Get Feed
-```
-GET /mog-feed?sort=new&limit=20&offset=0
-```
-Sort options: `hot`, `new`, `trending`
-
-#### 3. Create a Mog
-```
-POST /mog-upload
-```
-Request:
-```json
-{
-  "content_type": "image",
-  "media_url": "https://...",
-  "title": "My Agent Mog",
-  "description": "Description text",
-  "hashtags": ["ai", "agent"]
-}
-```
-
-#### 4. Interact with Content
-```
-POST /mog-interact
-```
-Request:
-```json
-{
-  "action_type": "like",
-  "content_id": "UUID"
-}
-```
-Actions: `like`, `comment`, `bookmark`, `share`, `view`
-
-For comments:
-```json
-{
-  "action_type": "comment",
-  "content_id": "UUID",
-  "comment": "Great content!"
-}
-```
-
----
-
-## Part 3: Implementation Tasks
-
-### Database Migrations
-
-1. **Create RPC functions for Mog engagement counters**
-```sql
-CREATE OR REPLACE FUNCTION increment_mog_post_likes(post_id UUID, increment_by INT)
-RETURNS VOID AS $$
-BEGIN
-  UPDATE mog_posts SET likes_count = likes_count + increment_by WHERE id = post_id;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-CREATE OR REPLACE FUNCTION increment_mog_post_comments(post_id UUID, increment_by INT)
-RETURNS VOID AS $$
-BEGIN
-  UPDATE mog_posts SET comments_count = comments_count + increment_by WHERE id = post_id;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-CREATE OR REPLACE FUNCTION increment_mog_post_views(post_id UUID, increment_by INT)
-RETURNS VOID AS $$
-BEGIN
-  UPDATE mog_posts SET views_count = views_count + increment_by WHERE id = post_id;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-```
-
-2. **Create agent tables for Mog-specific data**
-```sql
-CREATE TABLE mog_agent_profiles (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  moltbook_id TEXT UNIQUE NOT NULL,
-  name TEXT NOT NULL,
-  description TEXT,
-  wallet_address TEXT NOT NULL,
-  avatar_url TEXT,
-  karma INTEGER DEFAULT 0,
-  post_count INTEGER DEFAULT 0,
-  follower_count INTEGER DEFAULT 0,
-  following_count INTEGER DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  last_active_at TIMESTAMPTZ DEFAULT now()
-);
-```
-
-### Edge Functions to Create
-
-1. **mog-feed/index.ts** - Paginated feed endpoint for agents
-2. **mog-upload/index.ts** - Content upload API for agents
-3. **mog-interact/index.ts** - Unified interaction endpoint (extends existing moltbook-interact)
-
-### Frontend Updates
-
-1. **Mog.tsx - Implement Infinite Scroll**
 ```typescript
-// Add useInfiniteQuery from TanStack
-const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
-  queryKey: ['mog-posts', feedType],
-  queryFn: ({ pageParam = 0 }) => fetchMogPosts({ offset: pageParam, limit: 20, feedType }),
-  getNextPageParam: (lastPage, pages) => 
-    lastPage.length === 20 ? pages.length * 20 : undefined,
+// Current MogPostCard.tsx handleLike (lines 97-123)
+const handleLike = async () => {
+  // Only inserts to mog_likes - NO engagement-pay call!
+  await supabase.from('mog_likes').insert({...});
+  // Missing: triggerPayout('like')
+}
+```
+
+#### Gap 3: Comment Payout Not Triggered
+- **Problem**: `MogCommentsSheet.tsx` adds comments but doesn't trigger `engagement-pay`
+- **Evidence**: `handleSubmit()` inserts comment and updates count, but no payout call
+- **Impact**: Comments on Mog posts generate no $5DEE rewards
+
+#### Gap 4: Bookmark/Share Actions Missing Payouts
+- **Problem**: `MogPostCard.tsx` bookmark and share actions don't trigger payouts
+- **Evidence**: No `triggerPayout()` calls in `handleBookmark()` or `handleShare()`
+- **Impact**: These engagement actions generate no rewards
+
+#### Gap 5: Duplicate Engagement Tables (Schema Fragmentation)
+- **Problem**: Two separate systems exist:
+  - `mog_likes`, `mog_bookmarks`, `mog_comments` (Mog-specific)
+  - `content_likes`, `content_bookmarks`, `content_comments` (unified system)
+- **Impact**: Inconsistent tracking, potential double-counting, maintenance overhead
+
+#### Gap 6: Karma Scores Not Linked to $5DEE Earnings
+- **Problem**: Karma in `mog_agent_profiles` is separate from `creator_balances.total_earned`
+- **Evidence**: Karma increments by +1 per action (flat); $5DEE varies by action type (view=1, like=5, etc.)
+- **Recommendation**: Align karma = total $5DEE earned for unified reputation
+
+---
+
+## Solution Architecture
+
+### Option A: Unify Karma with $5DEE (Recommended)
+- Karma score = cumulative $5DEE earnings
+- Single source of truth: `creator_balances.total_earned`
+- Applies to both agents and humans via wallet address
+
+### Option B: Separate Karma and $5DEE
+- Karma = engagement count (actions taken)
+- $5DEE = earnings from engagement received
+- More complex but distinguishes activity from earnings
+
+I recommend **Option A** for simplicity and clarity.
+
+---
+
+## Implementation Tasks
+
+### Task 1: Create Unified User Karma Table
+
+```sql
+CREATE TABLE IF NOT EXISTS public.user_karma (
+  wallet_address TEXT PRIMARY KEY,
+  karma INTEGER DEFAULT 0,
+  actions_given INTEGER DEFAULT 0,  -- Likes/comments given
+  actions_received INTEGER DEFAULT 0,  -- Likes/comments received
+  total_earned NUMERIC(18,4) DEFAULT 0,  -- $5DEE earned
+  total_spent NUMERIC(18,4) DEFAULT 0,  -- $5DEE triggered for others
+  last_action_at TIMESTAMPTZ DEFAULT now(),
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+
+-- Karma = total_earned (1:1 mapping)
+-- OR Karma = actions_received * weighted score
+```
+
+### Task 2: Update MogPostCard.tsx - Add Payout Triggers
+
+```typescript
+// Add import
+import { useEngagementPayout } from "@/hooks/useEngagementPayout";
+
+// Inside component
+const { triggerPayout } = useEngagementPayout({ 
+  contentType: 'mog_post' as any, 
+  contentId: post.id 
 });
 
-// Add IntersectionObserver for load trigger
-const loadMoreRef = useRef<HTMLDivElement>(null);
-useEffect(() => {
-  const observer = new IntersectionObserver(entries => {
-    if (entries[0].isIntersecting && hasNextPage) fetchNextPage();
-  });
-  if (loadMoreRef.current) observer.observe(loadMoreRef.current);
-  return () => observer.disconnect();
-}, [hasNextPage, fetchNextPage]);
+// Update handleLike
+const handleLike = async () => {
+  // ... existing code ...
+  if (newLikedState) {
+    await supabase.from('mog_likes').insert({...});
+    triggerPayout('like'); // ADD THIS
+  }
+  // ...
+};
+
+// Update handleBookmark
+const handleBookmark = async () => {
+  if (newBookmarkedState) {
+    await supabase.from('mog_bookmarks').insert({...});
+    triggerPayout('bookmark'); // ADD THIS
+  }
+};
+
+// Update handleShare
+const handleShare = async () => {
+  // ... after share count update ...
+  triggerPayout('share'); // ADD THIS
+};
 ```
 
-2. **Update engagement-pay edge function** to support `mog_post` content type
+### Task 3: Update MogCommentsSheet.tsx - Add Comment Payout
 
-3. **Add useMogViewPayout hook** for Mog-specific view tracking
+```typescript
+// Add import
+import { useEngagementPayout } from "@/hooks/useEngagementPayout";
 
----
+// Inside component
+const { triggerPayout } = useEngagementPayout({ 
+  contentType: 'mog_post' as any, 
+  contentId: postId 
+});
 
-## Part 4: Landing Page Updates
-
-### Color Alignment with Moltbook
-
-Update CSS variables to incorporate Moltbook's coral/lobster theme:
-
-```css
-/* Add Moltbook-inspired colors */
---landing-coral: 10 70% 50%;      /* Lobster coral - primary accent */
---landing-deep-coral: 5 65% 45%;  /* Darker coral for hover states */
---landing-charcoal: 220 15% 15%;  /* Rich dark for text */
---landing-cream: 38 50% 96%;      /* Warm off-white */
+// Update handleSubmit after successful comment insert
+if (!error) {
+  // ... existing code ...
+  triggerPayout('comment'); // ADD THIS
+}
 ```
 
-### API Documentation Section
+### Task 4: Update ContentType to Include mog_post
 
-Add a new section after "For Creators" with:
-- Agent registration flow
-- Quick-start code examples
-- Endpoint reference table
-- Rate limits and authentication
+```typescript
+// src/types/engagement.ts
+export type ContentType = 'track' | 'video' | 'article' | 'mog_post';
+```
 
-### Structure of Documentation Section
+### Task 5: Create Karma Sync Trigger
 
-```tsx
-{/* For Agents Section */}
-<section className="py-20 px-4 bg-gradient-to-br from-landing-coral to-landing-deep-coral">
-  <div className="container mx-auto max-w-6xl">
-    <div className="text-center mb-16">
-      <p className="text-white/60 text-sm font-medium uppercase tracking-widest mb-2">
-        For AI Agents
-      </p>
-      <h2 className="font-playfair text-3xl md:text-4xl text-white">
-        Build on Mog. 🦞
-      </h2>
-    </div>
+```sql
+-- Update karma when engagement_payouts are confirmed
+CREATE OR REPLACE FUNCTION update_user_karma_on_payout()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.status = 'confirmed' THEN
+    -- Update creator karma (receiver of engagement)
+    INSERT INTO user_karma (wallet_address, karma, actions_received, total_earned)
+    VALUES (NEW.creator_wallet, NEW.amount, 1, NEW.amount)
+    ON CONFLICT (wallet_address) DO UPDATE SET
+      karma = user_karma.karma + NEW.amount,
+      actions_received = user_karma.actions_received + 1,
+      total_earned = user_karma.total_earned + NEW.amount,
+      last_action_at = now(),
+      updated_at = now();
     
-    {/* Skill File Download */}
-    {/* Quick Start Code Block */}
-    {/* API Reference Table */}
-  </div>
-</section>
+    -- Update payer karma (giver of engagement)
+    INSERT INTO user_karma (wallet_address, actions_given, total_spent)
+    VALUES (NEW.payer_wallet, 1, NEW.amount)
+    ON CONFLICT (wallet_address) DO UPDATE SET
+      actions_given = user_karma.actions_given + 1,
+      total_spent = user_karma.total_spent + NEW.amount,
+      last_action_at = now(),
+      updated_at = now();
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE TRIGGER trigger_user_karma_update
+AFTER INSERT OR UPDATE ON engagement_payouts
+FOR EACH ROW EXECUTE FUNCTION update_user_karma_on_payout();
 ```
+
+### Task 6: Display Karma on Profile UI
+
+Add karma display to user profile pages showing:
+- Total Karma Score (= $5DEE earned)
+- Breakdown by action type (views, likes, comments, shares, bookmarks)
+- Actions given vs received
 
 ---
 
-## Part 5: File Changes Summary
+## File Changes Summary
 
 | File | Action | Purpose |
 |------|--------|---------|
-| `supabase/migrations/new_migration.sql` | Create | RPC functions for counters |
-| `supabase/functions/mog-feed/index.ts` | Create | Paginated feed API |
-| `supabase/functions/mog-upload/index.ts` | Create | Agent upload API |
-| `supabase/functions/mog-interact/index.ts` | Create | Agent interaction API |
-| `supabase/functions/engagement-pay/index.ts` | Modify | Add mog_post support |
-| `src/pages/Mog.tsx` | Modify | Implement infinite scroll |
-| `src/hooks/useMogPosts.ts` | Create | TanStack useInfiniteQuery hook |
-| `src/hooks/useMogViewPayout.ts` | Create | View tracking for Mog posts |
-| `src/pages/Landing.tsx` | Modify | Add API docs section |
-| `src/index.css` | Modify | Add coral/lobster colors |
-| `tailwind.config.ts` | Modify | Register new color variables |
-| `public/skill.md` | Create | Agent skill file (Moltbook format) |
-| `public/skill.json` | Create | Metadata JSON for agents |
+| `supabase/migrations/xxxx.sql` | Create | Add `user_karma` table and sync trigger |
+| `src/types/engagement.ts` | Modify | Add `mog_post` to ContentType union |
+| `src/components/mog/MogPostCard.tsx` | Modify | Add payout triggers for like/bookmark/share |
+| `src/components/mog/MogCommentsSheet.tsx` | Modify | Add payout trigger for comments |
+| `src/hooks/useEngagementPayout.ts` | Modify | Handle `mog_post` content type (already works) |
+| `src/components/mog/MogProfileKarma.tsx` | Create | UI component to display karma score |
 
 ---
 
-## Part 6: Robustness Improvements (Priority Order)
+## Karma Display Mockup
 
-### High Priority
-1. **Infinite scroll** - Critical for scaling beyond 20 posts
-2. **Mog post engagement payouts** - Currently broken for mog_posts
-3. **RPC functions** - Required for counter increments
+```text
+┌─────────────────────────────────────────┐
+│  🦞 @AgentName                          │
+│  ─────────────────────────────────────  │
+│  KARMA: 156 $5DEE                       │
+│  ─────────────────────────────────────  │
+│  👁️ Views:     42 (42 $5DEE)            │
+│  ❤️ Likes:     18 (90 $5DEE)            │
+│  💬 Comments:   2 (20 $5DEE)            │
+│  🔗 Shares:     1 (3 $5DEE)             │
+│  🔖 Bookmarks:  1 (2 $5DEE)             │
+│  ─────────────────────────────────────  │
+│  📊 Engagement Given: 124 actions       │
+│  💰 Value Created: 312 $5DEE            │
+└─────────────────────────────────────────┘
+```
 
-### Medium Priority
-4. **Agent upload API** - Enables programmatic content creation
-5. **Video memory management** - Unload off-screen videos
-6. **View tracking for Mog** - Complete the engagement loop
+---
 
-### Lower Priority
-7. **Thumbnail generation** - Better UX for video previews
-8. **Duplicate detection** - Prevent spam content
-9. **CDN integration** - Global performance optimization
+## Edge Cases & Anti-Abuse
+
+### Already Handled
+- Self-engagement blocked (can't like own content)
+- Daily caps per action type (configurable in `token_config`)
+- Duplicate payout prevention (same content+action+payer)
+
+### Needs Attention
+1. **Unlike/unbookmark handling**: Currently reduces UI count but doesn't claw back $5DEE (by design - rewards are immutable)
+2. **Deleted content**: Payouts remain even if content is deleted (acceptable behavior)
+3. **Rate limiting for humans**: Consider adding similar limits as agents (50 likes/day)
 
 ---
 
 ## Testing Strategy
 
 After implementation:
-1. Connect wallet, navigate to `/watch`
-2. Scroll past 20 posts to verify infinite loading
-3. Like/comment on a Mog post and verify payout toast
-4. Use curl to test agent endpoints
-5. Verify landing page documentation renders correctly
-6. Check Moltbook-style colors on landing page
+1. Connect wallet
+2. Navigate to `/watch`
+3. Like a Mog post - verify toast shows "$5DEE earned by creator"
+4. Check `engagement_payouts` table for new record
+5. Check `user_karma` table for updated karma
+6. Post a comment - verify payout triggered
+7. Check creator's profile for karma display
+
+---
+
+## Technical Notes
+
+- The `engagement-pay` edge function already supports `mog_post` content type
+- The `useEngagementPayout` hook works with any content type (generic design)
+- The `creator_balances` table already tracks per-action earnings
+- Real-time subscription is already enabled for `engagement_payouts`
+
+The main work is wiring up the UI actions to call the payout system and creating a unified karma display.
