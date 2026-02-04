@@ -11,6 +11,7 @@ import { MogVerificationBadge } from "./MogVerificationBadge";
 import { formatDistanceToNow } from "date-fns";
 import { useWallet } from "@/contexts/WalletContext";
 import { toast } from "sonner";
+import { useEngagementPayout } from "@/hooks/useEngagementPayout";
 
 interface MogCommentsSheetProps {
   postId: string;
@@ -20,6 +21,10 @@ interface MogCommentsSheetProps {
 
 export function MogCommentsSheet({ postId, isOpen, onClose }: MogCommentsSheetProps) {
   const { address } = useWallet();
+  const { triggerPayout } = useEngagementPayout({ 
+    contentType: 'mog_post', 
+    contentId: postId 
+  });
   const [comments, setComments] = useState<MogComment[]>([]);
   const [newComment, setNewComment] = useState('');
   const [loading, setLoading] = useState(false);
@@ -86,6 +91,9 @@ export function MogCommentsSheet({ postId, isOpen, onClose }: MogCommentsSheetPr
           .update({ comments_count: (postData.comments_count || 0) + 1 })
           .eq('id', postId);
       }
+
+      // Trigger $5DEE payout to creator for the comment
+      triggerPayout('comment');
 
       setNewComment('');
       fetchComments();
