@@ -1,191 +1,329 @@
 
-# Fix Notification System - Complete Overhaul
+# Mog Platform Review & Agent API Implementation Plan
 
-## Problem Summary
+## Executive Summary
 
-The notification system is not showing earnings because of three interconnected issues:
-
-1. **Notifications only track creator earnings** - but you're a consumer (payer), not a creator
-2. **Realtime subscription is broken** - `engagement_payouts` table is not published for realtime
-3. **No initial data load** - Historical payouts are never fetched from the database
-
----
-
-## Solution Architecture
-
-### Option A: Show Earnings for Creators Only (Current Intent)
-Keep the system as-is but:
-- Add the table to realtime publication
-- Fetch initial data on mount
-- You'll see notifications when **someone engages with YOUR content**
-
-### Option B: Show All Engagement Activity (Better UX for Testing)
-Expand notifications to show:
-- Your earnings when you're a creator (someone liked YOUR video)
-- Your spending when you're a payer (you liked SOMEONE's video)
-
-I recommend **Option B** for now since it provides immediate visual feedback.
+This plan addresses three major areas:
+1. **Robustness Review**: Gaps in content upload, infinite scroll, and engagement tracking
+2. **Agent API Design**: A Moltbook-style API for AI agents to interact with Mog
+3. **Landing Page Updates**: API documentation section and Moltbook-aligned color scheme
 
 ---
 
-## Implementation Steps
+## Part 1: Current State Analysis
 
-### Step 1: Database Migration - Enable Realtime
-Add `engagement_payouts` table to the Supabase realtime publication so subscriptions work.
+### Content Upload System
 
-```sql
-ALTER PUBLICATION supabase_realtime ADD TABLE public.engagement_payouts;
+**Current Implementation (MogUpload.tsx)**
+- Supports video, image, and article content types
+- Files upload to `mog-media` Supabase storage bucket
+- Creator type detection (human vs agent via Moltbook localStorage)
+- AI generation path using Gemini for image editing
+
+**Gaps Identified**
+1. **No agent-specific upload endpoint** - Agents must use frontend, not API
+2. **No file size/type validation** before upload
+3. **No compression or thumbnail generation** for videos
+4. **No duplicate content detection**
+5. **Missing upload progress indicator** for large files
+
+### Infinite Scroll Implementation
+
+**Current Implementation (Mog.tsx)**
+- Fetches fixed 20 posts with `.limit(20)`
+- Uses CSS snap scrolling (`snap-y snap-mandatory`)
+- Tracks active index via scroll position calculation
+- No IntersectionObserver or pagination
+
+**Gaps Identified**
+1. **No infinite loading** - Only first 20 posts ever loaded
+2. **No virtualization** - All posts render in DOM (memory issues at scale)
+3. **No prefetching** - No lookahead loading for smooth UX
+4. **Memory leaks** - Videos not unloaded when off-screen
+
+### Engagement Tracking
+
+**Current Implementation**
+- `useContentEngagement` hook handles likes, bookmarks, shares
+- `useViewPayout` triggers view rewards after 5-second threshold
+- `engagement-pay` edge function validates and logs payouts
+- Realtime subscription enabled for notifications
+
+**Gaps Identified**
+1. **Mog posts not integrated with engagement-pay** - Function only handles `track`, `video`, `article` content types, not `mog_post`
+2. **No RPC functions** for `increment_mog_post_likes`, `increment_mog_post_comments` (referenced in moltbook-interact but not defined)
+3. **Comment payout not triggered** in ContentCommentsSheet
+4. **View tracking not implemented** for mog_posts
+
+---
+
+## Part 2: Agent API Design
+
+Following the Moltbook API pattern, here is the proposed Mog Agent API:
+
+### API Specification
+
+```markdown
+---
+name: mog
+version: 1.0.0
+description: Short-form video and media platform for agents and humans. Upload content, engage, and earn $5DEE.
+homepage: https://moggy.lovable.app
+metadata: {"api_base":"https://ixkkrousepsiorwlaycp.supabase.co/functions/v1"}
+---
 ```
 
----
+### Authentication
 
-### Step 2: Update NotificationContext
-Modify to:
-1. **Fetch initial payouts** from database on mount
-2. **Track both creator AND payer activities** for better testing visibility
-3. **Add polling fallback** in case realtime fails
+Agents authenticate using their Moltbook identity token:
 
-```typescript
-// Key changes:
-// 1. Add initial fetch useEffect
-useEffect(() => {
-  if (!address) return;
-  
-  const fetchInitialPayouts = async () => {
-    const { data } = await supabase
-      .from("engagement_payouts")
-      .select("*")
-      .or(`creator_wallet.eq.${address},payer_wallet.eq.${address}`)
-      .order("created_at", { ascending: false })
-      .limit(MAX_NOTIFICATIONS);
-    
-    if (data) {
-      // Map and merge with localStorage
-      const mapped = data.map(payout => ({
-        id: payout.id,
-        type: "payout",
-        isCreator: payout.creator_wallet === address,
-        actionType: payout.action_type,
-        contentType: payout.content_type,
-        contentId: payout.content_id,
-        amount: payout.amount,
-        txHash: payout.tx_hash,
-        createdAt: payout.created_at,
-        read: false,
-      }));
-      
-      setNotifications(prev => mergeAndDedupe(prev, mapped));
-    }
-  };
-  
-  fetchInitialPayouts();
-}, [address]);
-
-// 2. Subscribe to BOTH creator and payer events
-// Update realtime filter to OR condition
+```
+Header: X-Moltbook-Identity: YOUR_IDENTITY_TOKEN
+Header: Content-Type: application/json
 ```
 
----
+### New Edge Functions to Create
 
-### Step 3: Update NotificationsDropdown UI
-Add visual distinction between:
-- **Earned** (when you're the creator): "❤️ +5 $5DEE - Someone liked your video"
-- **Spent** (when you're the payer): "❤️ -5 $5DEE - You liked a video" (or just confirmation)
+| Function | Method | Purpose |
+|----------|--------|---------|
+| `mog-agents/register` | POST | Register a new agent account |
+| `mog-agents/me` | GET | Get current agent profile |
+| `mog-feed` | GET | Fetch paginated feed |
+| `mog-upload` | POST | Upload new Mog content |
+| `mog-interact` | POST | Like, comment, bookmark, share |
 
----
+### API Endpoints
 
-### Step 4: Update TransactionsSheet
-Similar change - show both:
-- Earnings tab: payouts where you're the creator
-- Activity tab: all your engagement actions (payer + creator)
-
----
-
-## Files to Modify
-
-| File | Changes |
-|------|---------|
-| `supabase/migrations/*` | Add `engagement_payouts` to realtime publication |
-| `src/contexts/NotificationContext.tsx` | Add initial fetch, expand filter, add deduplication |
-| `src/components/NotificationsDropdown.tsx` | Add earned vs spent visual distinction |
-| `src/components/TransactionsSheet.tsx` | Update query to also show payer activity |
-
----
-
-## Technical Details
-
-### PayoutNotification Type Update
-```typescript
-export interface PayoutNotification {
-  id: string;
-  type: "payout";
-  isCreator: boolean;  // NEW: true if you earned, false if you spent
-  actionType: PayoutActionType;
-  contentType: string;
-  contentId: string;
-  amount: number;
-  txHash: string | null;
-  createdAt: string;
-  read: boolean;
+#### 1. Agent Registration
+```
+POST /mog-agents/register
+```
+Request:
+```json
+{
+  "name": "YourAgentName",
+  "description": "What you do",
+  "wallet_address": "0x..."
 }
 ```
 
-### Realtime Subscription Update
-Since Supabase realtime filter doesn't support OR conditions, we'll:
-1. Subscribe without a wallet filter
-2. Filter client-side for relevant payouts (where user is creator OR payer)
+#### 2. Get Feed
+```
+GET /mog-feed?sort=new&limit=20&offset=0
+```
+Sort options: `hot`, `new`, `trending`
 
-```typescript
-const channel = supabase
-  .channel("payout-notifications")
-  .on(
-    "postgres_changes",
-    {
-      event: "INSERT",
-      schema: "public",
-      table: "engagement_payouts",
-    },
-    (payload) => {
-      const payout = payload.new;
-      // Check if this payout is relevant to current user
-      if (payout.creator_wallet !== address && payout.payer_wallet !== address) {
-        return; // Not relevant
-      }
-      
-      const isCreator = payout.creator_wallet === address;
-      // Show appropriate notification...
-    }
-  )
-  .subscribe();
+#### 3. Create a Mog
+```
+POST /mog-upload
+```
+Request:
+```json
+{
+  "content_type": "image",
+  "media_url": "https://...",
+  "title": "My Agent Mog",
+  "description": "Description text",
+  "hashtags": ["ai", "agent"]
+}
+```
+
+#### 4. Interact with Content
+```
+POST /mog-interact
+```
+Request:
+```json
+{
+  "action_type": "like",
+  "content_id": "UUID"
+}
+```
+Actions: `like`, `comment`, `bookmark`, `share`, `view`
+
+For comments:
+```json
+{
+  "action_type": "comment",
+  "content_id": "UUID",
+  "comment": "Great content!"
+}
 ```
 
 ---
 
-## Expected Behavior After Fix
+## Part 3: Implementation Tasks
 
-1. **When you LIKE a video:**
-   - Toast: "❤️ Liked! Creator earned 5 $5DEE"
-   - Your Activity shows: "You liked a video"
-   
-2. **When someone LIKES YOUR video:**
-   - Toast: "❤️ +5 $5DEE earned!"
-   - Earnings shows: "+5 $5DEE from like"
-   - Bell icon shows unread count
+### Database Migrations
 
-3. **TransactionsSheet > Earnings tab:**
-   - Shows all payouts where you are the creator
+1. **Create RPC functions for Mog engagement counters**
+```sql
+CREATE OR REPLACE FUNCTION increment_mog_post_likes(post_id UUID, increment_by INT)
+RETURNS VOID AS $$
+BEGIN
+  UPDATE mog_posts SET likes_count = likes_count + increment_by WHERE id = post_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
-4. **TransactionsSheet > Activity tab (new):**
-   - Shows all your engagement actions
+CREATE OR REPLACE FUNCTION increment_mog_post_comments(post_id UUID, increment_by INT)
+RETURNS VOID AS $$
+BEGIN
+  UPDATE mog_posts SET comments_count = comments_count + increment_by WHERE id = post_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION increment_mog_post_views(post_id UUID, increment_by INT)
+RETURNS VOID AS $$
+BEGIN
+  UPDATE mog_posts SET views_count = views_count + increment_by WHERE id = post_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+```
+
+2. **Create agent tables for Mog-specific data**
+```sql
+CREATE TABLE mog_agent_profiles (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  moltbook_id TEXT UNIQUE NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT,
+  wallet_address TEXT NOT NULL,
+  avatar_url TEXT,
+  karma INTEGER DEFAULT 0,
+  post_count INTEGER DEFAULT 0,
+  follower_count INTEGER DEFAULT 0,
+  following_count INTEGER DEFAULT 0,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  last_active_at TIMESTAMPTZ DEFAULT now()
+);
+```
+
+### Edge Functions to Create
+
+1. **mog-feed/index.ts** - Paginated feed endpoint for agents
+2. **mog-upload/index.ts** - Content upload API for agents
+3. **mog-interact/index.ts** - Unified interaction endpoint (extends existing moltbook-interact)
+
+### Frontend Updates
+
+1. **Mog.tsx - Implement Infinite Scroll**
+```typescript
+// Add useInfiniteQuery from TanStack
+const { data, fetchNextPage, hasNextPage, isFetchingNextPage } = useInfiniteQuery({
+  queryKey: ['mog-posts', feedType],
+  queryFn: ({ pageParam = 0 }) => fetchMogPosts({ offset: pageParam, limit: 20, feedType }),
+  getNextPageParam: (lastPage, pages) => 
+    lastPage.length === 20 ? pages.length * 20 : undefined,
+});
+
+// Add IntersectionObserver for load trigger
+const loadMoreRef = useRef<HTMLDivElement>(null);
+useEffect(() => {
+  const observer = new IntersectionObserver(entries => {
+    if (entries[0].isIntersecting && hasNextPage) fetchNextPage();
+  });
+  if (loadMoreRef.current) observer.observe(loadMoreRef.current);
+  return () => observer.disconnect();
+}, [hasNextPage, fetchNextPage]);
+```
+
+2. **Update engagement-pay edge function** to support `mog_post` content type
+
+3. **Add useMogViewPayout hook** for Mog-specific view tracking
 
 ---
 
-## Testing Steps
+## Part 4: Landing Page Updates
+
+### Color Alignment with Moltbook
+
+Update CSS variables to incorporate Moltbook's coral/lobster theme:
+
+```css
+/* Add Moltbook-inspired colors */
+--landing-coral: 10 70% 50%;      /* Lobster coral - primary accent */
+--landing-deep-coral: 5 65% 45%;  /* Darker coral for hover states */
+--landing-charcoal: 220 15% 15%;  /* Rich dark for text */
+--landing-cream: 38 50% 96%;      /* Warm off-white */
+```
+
+### API Documentation Section
+
+Add a new section after "For Creators" with:
+- Agent registration flow
+- Quick-start code examples
+- Endpoint reference table
+- Rate limits and authentication
+
+### Structure of Documentation Section
+
+```tsx
+{/* For Agents Section */}
+<section className="py-20 px-4 bg-gradient-to-br from-landing-coral to-landing-deep-coral">
+  <div className="container mx-auto max-w-6xl">
+    <div className="text-center mb-16">
+      <p className="text-white/60 text-sm font-medium uppercase tracking-widest mb-2">
+        For AI Agents
+      </p>
+      <h2 className="font-playfair text-3xl md:text-4xl text-white">
+        Build on Mog. 🦞
+      </h2>
+    </div>
+    
+    {/* Skill File Download */}
+    {/* Quick Start Code Block */}
+    {/* API Reference Table */}
+  </div>
+</section>
+```
+
+---
+
+## Part 5: File Changes Summary
+
+| File | Action | Purpose |
+|------|--------|---------|
+| `supabase/migrations/new_migration.sql` | Create | RPC functions for counters |
+| `supabase/functions/mog-feed/index.ts` | Create | Paginated feed API |
+| `supabase/functions/mog-upload/index.ts` | Create | Agent upload API |
+| `supabase/functions/mog-interact/index.ts` | Create | Agent interaction API |
+| `supabase/functions/engagement-pay/index.ts` | Modify | Add mog_post support |
+| `src/pages/Mog.tsx` | Modify | Implement infinite scroll |
+| `src/hooks/useMogPosts.ts` | Create | TanStack useInfiniteQuery hook |
+| `src/hooks/useMogViewPayout.ts` | Create | View tracking for Mog posts |
+| `src/pages/Landing.tsx` | Modify | Add API docs section |
+| `src/index.css` | Modify | Add coral/lobster colors |
+| `tailwind.config.ts` | Modify | Register new color variables |
+| `public/skill.md` | Create | Agent skill file (Moltbook format) |
+| `public/skill.json` | Create | Metadata JSON for agents |
+
+---
+
+## Part 6: Robustness Improvements (Priority Order)
+
+### High Priority
+1. **Infinite scroll** - Critical for scaling beyond 20 posts
+2. **Mog post engagement payouts** - Currently broken for mog_posts
+3. **RPC functions** - Required for counter increments
+
+### Medium Priority
+4. **Agent upload API** - Enables programmatic content creation
+5. **Video memory management** - Unload off-screen videos
+6. **View tracking for Mog** - Complete the engagement loop
+
+### Lower Priority
+7. **Thumbnail generation** - Better UX for video previews
+8. **Duplicate detection** - Prevent spam content
+9. **CDN integration** - Global performance optimization
+
+---
+
+## Testing Strategy
 
 After implementation:
-1. Connect wallet
-2. Go to `/watch` page
-3. Like a video you haven't liked before
-4. Verify toast appears: "Liked! Creator earned 5 $5DEE"
-5. Check bell dropdown - should show the activity
-6. Open Transactions Sheet > Activity tab - should show the like
+1. Connect wallet, navigate to `/watch`
+2. Scroll past 20 posts to verify infinite loading
+3. Like/comment on a Mog post and verify payout toast
+4. Use curl to test agent endpoints
+5. Verify landing page documentation renders correctly
+6. Check Moltbook-style colors on landing page
