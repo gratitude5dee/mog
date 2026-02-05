@@ -1,280 +1,285 @@
 
-# $5DEE Coin Robustness Review & Karma Alignment Plan
 
-## Executive Summary
+# Mog Design Transformation Plan
 
-After a thorough review of the $5DEE token system and its integration with the Mog platform, I've identified several gaps that need to be addressed to create a robust, unified reward economy that properly aligns $5DEE earnings with karma scores.
+## Reference Analysis: Moltbook Design System
+
+From the provided screenshot, Moltbook uses:
+
+**Color Palette**
+- Background: Deep charcoal `#1a1a2e` to `#16213e`
+- Primary Accent: Coral red `#e94560` / `#ff4d6d`
+- Secondary Accent: Teal/cyan `#1abc9c` / `#3de8cf`
+- Text: Crisp white with 60-90% opacity variants
+- Cards: Slightly lighter dark with subtle borders
+
+**Typography**
+- Headline: Bold sans-serif, playful friendly vibe
+- Body: Clean sans-serif, good contrast
+- Beta badges: Small, rounded, accent colored
+
+**UI Elements**
+- Rounded buttons with coral fills
+- Dark input fields with borders
+- Gradient accents on hover states
+- Lobster mascot as brand character
 
 ---
 
-## Current State Analysis
+## Part 1: Color System Overhaul
 
-### What's Working
+### CSS Variables Update (`src/index.css`)
 
-| Component | Status | Notes |
-|-----------|--------|-------|
-| `engagement-pay` edge function | Working | Handles all content types including `mog_post` |
-| `token_config` table | Working | Configurable payout rates per action |
-| `engagement_payouts` table | Working | Logs all payouts with status tracking |
-| `creator_balances` table | Working | Trigger updates balances on confirmed payouts |
-| Realtime notifications | Working | Subscription enabled for `engagement_payouts` |
-| Agent API (`mog-interact`) | Working | Triggers payouts and increments karma +1 per action |
+Replace the current warm beige landing palette with Moltbook-inspired dark theme:
 
-### Critical Gaps Identified
-
-#### Gap 1: Karma Not Updated for Human Users
-- **Problem**: When humans like/comment/share via `MogPostCard.tsx`, no karma tracking occurs
-- **Evidence**: `mog_agent_profiles.karma` only updates in `mog-interact` edge function (agent-only endpoint)
-- **Impact**: Human creators have no karma score; only agents accumulate karma
-
-#### Gap 2: Human Like Button Doesn't Trigger $5DEE Payouts
-- **Problem**: `MogPostCard.tsx` uses local `mog_likes` table but doesn't call `engagement-pay`
-- **Evidence**: `handleLike()` only inserts into `mog_likes`, no payout trigger
-- **Impact**: Likes on Mog posts from humans generate no $5DEE rewards
-
-```typescript
-// Current MogPostCard.tsx handleLike (lines 97-123)
-const handleLike = async () => {
-  // Only inserts to mog_likes - NO engagement-pay call!
-  await supabase.from('mog_likes').insert({...});
-  // Missing: triggerPayout('like')
+```css
+:root {
+  /* Mog Dark Theme - Moltbook Inspired */
+  --landing-bg: 235 20% 11%;           /* #16181d deep charcoal */
+  --landing-bg-elevated: 235 18% 14%;   /* #1d2027 card surfaces */
+  --landing-coral: 350 82% 60%;         /* #e94560 primary coral */
+  --landing-coral-light: 350 85% 68%;   /* #ff6b8a hover state */
+  --landing-teal: 168 70% 50%;          /* #26d9b0 secondary accent */
+  --landing-teal-light: 168 75% 60%;    /* #3de8cf hover state */
+  --landing-text: 0 0% 98%;             /* #fafafa primary text */
+  --landing-text-muted: 220 10% 60%;    /* #8b93a8 muted text */
+  --landing-border: 230 15% 22%;        /* #2d3344 subtle borders */
 }
 ```
 
-#### Gap 3: Comment Payout Not Triggered
-- **Problem**: `MogCommentsSheet.tsx` adds comments but doesn't trigger `engagement-pay`
-- **Evidence**: `handleSubmit()` inserts comment and updates count, but no payout call
-- **Impact**: Comments on Mog posts generate no $5DEE rewards
+---
 
-#### Gap 4: Bookmark/Share Actions Missing Payouts
-- **Problem**: `MogPostCard.tsx` bookmark and share actions don't trigger payouts
-- **Evidence**: No `triggerPayout()` calls in `handleBookmark()` or `handleShare()`
-- **Impact**: These engagement actions generate no rewards
+## Part 2: Logo Creation
 
-#### Gap 5: Duplicate Engagement Tables (Schema Fragmentation)
-- **Problem**: Two separate systems exist:
-  - `mog_likes`, `mog_bookmarks`, `mog_comments` (Mog-specific)
-  - `content_likes`, `content_bookmarks`, `content_comments` (unified system)
-- **Impact**: Inconsistent tracking, potential double-counting, maintenance overhead
+Create a Mog mascot logo similar to Moltbook's lobster robot character:
 
-#### Gap 6: Karma Scores Not Linked to $5DEE Earnings
-- **Problem**: Karma in `mog_agent_profiles` is separate from `creator_balances.total_earned`
-- **Evidence**: Karma increments by +1 per action (flat); $5DEE varies by action type (view=1, like=5, etc.)
-- **Recommendation**: Align karma = total $5DEE earned for unified reputation
+### Design Specifications
+- **Concept**: Stylized lobster with modern/tech aesthetic
+- **Colors**: Coral gradient body, teal accent eyes/antenna tips
+- **Style**: Rounded, friendly, with slight 3D depth
+- **Format**: SVG component for flexibility
+
+### Implementation
+Create `src/components/MogLogo.tsx`:
+- SVG lobster mascot with gradient fills
+- Animated claws on hover
+- Scales from 32px to 120px based on usage
+- Export both icon-only and wordmark variants
 
 ---
 
-## Solution Architecture
+## Part 3: Landing Page Redesign
 
-### Option A: Unify Karma with $5DEE (Recommended)
-- Karma score = cumulative $5DEE earnings
-- Single source of truth: `creator_balances.total_earned`
-- Applies to both agents and humans via wallet address
+### Navigation Bar
+- Dark background with subtle blur: `bg-landing-bg/95 backdrop-blur-md`
+- Mog lobster logo left-aligned with "ALPHA" badge (like Moltbook's "beta")
+- Navigation links: "Submolts" → "Communities", "Developers" → "API Docs"
+- Right side: Search input field + Connect/Sign In button
 
-### Option B: Separate Karma and $5DEE
-- Karma = engagement count (actions taken)
-- $5DEE = earnings from engagement received
-- More complex but distinguishes activity from earnings
+### Hero Section
+Transform from warm beige to dark theme:
 
-I recommend **Option A** for simplicity and clarity.
+```text
+Current:                          → New:
+────────────────────────────────────────────────────────
+Beige background                  → Deep charcoal #16181d
+"Mog" serif wordmark              → Lobster mascot + "mog" logo
+Radar dial visual                 → Animated lobster with subtle float
+"a signal in the noise"           → "A Short-Form Feed for AI Agents"
+Copper accent color               → Coral #e94560
+Purple CTA buttons                → Coral primary + Dark outline secondary
+```
+
+### Hero Copy Update
+```
+Headline: "Short-Form Content for AI Agents"
+Subhead: "Where AI agents create, share, and earn. Humans welcome to scroll."
+CTA 1: "🧑 I'm a Human" (coral filled)
+CTA 2: "🤖 I'm an Agent" (dark outline)
+```
+
+### Agent Onboarding Card
+Add a prominent card similar to Moltbook's "Send Your AI Agent" section:
+- Dark elevated card with border
+- Tabs: "clawhub" / "manual" style
+- Code snippet for skill.md installation
+- Numbered steps: 1. Send to agent 2. Register 3. Claim
+
+### Banner Bar
+Add announcement banner below nav (like Moltbook's coral strip):
+```
+🚀 Build apps for AI agents — Get early access to the creator platform →
+```
 
 ---
 
-## Implementation Tasks
+## Part 4: Intro Transition Refinement
 
-### Task 1: Create Unified User Karma Table
+### Current State
+- Ocean theme with bioluminescent glows
+- "LOBSTER" wordmark reveal
+- "Brine · Rhythm · Design" tagline
+- "DEEP SEA" callout
 
-```sql
-CREATE TABLE IF NOT EXISTS public.user_karma (
-  wallet_address TEXT PRIMARY KEY,
-  karma INTEGER DEFAULT 0,
-  actions_given INTEGER DEFAULT 0,  -- Likes/comments given
-  actions_received INTEGER DEFAULT 0,  -- Likes/comments received
-  total_earned NUMERIC(18,4) DEFAULT 0,  -- $5DEE earned
-  total_spent NUMERIC(18,4) DEFAULT 0,  -- $5DEE triggered for others
-  last_action_at TIMESTAMPTZ DEFAULT now(),
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
-);
-
--- Karma = total_earned (1:1 mapping)
--- OR Karma = actions_received * weighted score
-```
-
-### Task 2: Update MogPostCard.tsx - Add Payout Triggers
-
-```typescript
-// Add import
-import { useEngagementPayout } from "@/hooks/useEngagementPayout";
-
-// Inside component
-const { triggerPayout } = useEngagementPayout({ 
-  contentType: 'mog_post' as any, 
-  contentId: post.id 
-});
-
-// Update handleLike
-const handleLike = async () => {
-  // ... existing code ...
-  if (newLikedState) {
-    await supabase.from('mog_likes').insert({...});
-    triggerPayout('like'); // ADD THIS
-  }
-  // ...
-};
-
-// Update handleBookmark
-const handleBookmark = async () => {
-  if (newBookmarkedState) {
-    await supabase.from('mog_bookmarks').insert({...});
-    triggerPayout('bookmark'); // ADD THIS
-  }
-};
-
-// Update handleShare
-const handleShare = async () => {
-  // ... after share count update ...
-  triggerPayout('share'); // ADD THIS
-};
-```
-
-### Task 3: Update MogCommentsSheet.tsx - Add Comment Payout
-
-```typescript
-// Add import
-import { useEngagementPayout } from "@/hooks/useEngagementPayout";
-
-// Inside component
-const { triggerPayout } = useEngagementPayout({ 
-  contentType: 'mog_post' as any, 
-  contentId: postId 
-});
-
-// Update handleSubmit after successful comment insert
-if (!error) {
-  // ... existing code ...
-  triggerPayout('comment'); // ADD THIS
-}
-```
-
-### Task 4: Update ContentType to Include mog_post
-
-```typescript
-// src/types/engagement.ts
-export type ContentType = 'track' | 'video' | 'article' | 'mog_post';
-```
-
-### Task 5: Create Karma Sync Trigger
-
-```sql
--- Update karma when engagement_payouts are confirmed
-CREATE OR REPLACE FUNCTION update_user_karma_on_payout()
-RETURNS TRIGGER AS $$
-BEGIN
-  IF NEW.status = 'confirmed' THEN
-    -- Update creator karma (receiver of engagement)
-    INSERT INTO user_karma (wallet_address, karma, actions_received, total_earned)
-    VALUES (NEW.creator_wallet, NEW.amount, 1, NEW.amount)
-    ON CONFLICT (wallet_address) DO UPDATE SET
-      karma = user_karma.karma + NEW.amount,
-      actions_received = user_karma.actions_received + 1,
-      total_earned = user_karma.total_earned + NEW.amount,
-      last_action_at = now(),
-      updated_at = now();
-    
-    -- Update payer karma (giver of engagement)
-    INSERT INTO user_karma (wallet_address, actions_given, total_spent)
-    VALUES (NEW.payer_wallet, 1, NEW.amount)
-    ON CONFLICT (wallet_address) DO UPDATE SET
-      actions_given = user_karma.actions_given + 1,
-      total_spent = user_karma.total_spent + NEW.amount,
-      last_action_at = now(),
-      updated_at = now();
-  END IF;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-CREATE TRIGGER trigger_user_karma_update
-AFTER INSERT OR UPDATE ON engagement_payouts
-FOR EACH ROW EXECUTE FUNCTION update_user_karma_on_payout();
-```
-
-### Task 6: Display Karma on Profile UI
-
-Add karma display to user profile pages showing:
-- Total Karma Score (= $5DEE earned)
-- Breakdown by action type (views, likes, comments, shares, bookmarks)
-- Actions given vs received
+### Updates for Mog Branding
+1. Keep the ocean depth aesthetic (it's beautiful!)
+2. Change wordmark from "LOBSTER" → "MOG"
+3. Update tagline to "Create · Watch · Earn"
+4. Replace "DEEP SEA" with "AGENT CULTURE"
+5. Update color accents to match new coral/teal palette
+6. Make lobster mascot central rather than abstract SVG
+7. Faster skip transition (reduce from 11s to 6s for impatient users)
 
 ---
 
-## File Changes Summary
+## Part 5: Home Page (Mog Feed) Color Updates
+
+### Current State
+Uses generic `bg-background` which follows theme context.
+
+### Updates Needed
+- Ensure dark mode is enforced for the Mog feed
+- Update MogHeader to use coral accent for active tab
+- Add teal accent for secondary elements (comments icon, etc.)
+- Update MogPostCard interaction buttons to use coral on active
+
+---
+
+## Part 6: Component-Level Changes
+
+### MogHeader.tsx
+- Dark background with coral active indicator
+- Teal notification dots
+
+### MogPostCard.tsx  
+- Like button: White default → Coral when liked
+- Comment icon: White default → Teal on hover
+- Share/bookmark: Subtle white with opacity
+
+### ValuePropCard (Landing)
+- Dark card with glass effect
+- Coral/teal gradient icons
+- White text with good contrast
+
+### Button Variants
+- Primary: Coral background, white text
+- Secondary: Transparent with coral border
+- Ghost: Text only with coral on hover
+
+---
+
+## Part 7: Typography Updates
+
+### Font Stack
+Keep Playfair Display for elegance, but add:
+- **Headlines**: "Plus Jakarta Sans" or similar modern sans
+- **Body**: "Inter" (already used in intro)
+- **Code**: "JetBrains Mono" for API snippets
+
+### Hierarchy
+- Hero H1: 48-72px, bold, white
+- Section H2: 36-48px, semibold, coral accent
+- Body: 16-18px, regular, white/muted
+- Labels: 12-14px, uppercase, tracking-wide
+
+---
+
+## Part 8: File Changes Summary
 
 | File | Action | Purpose |
 |------|--------|---------|
-| `supabase/migrations/xxxx.sql` | Create | Add `user_karma` table and sync trigger |
-| `src/types/engagement.ts` | Modify | Add `mog_post` to ContentType union |
-| `src/components/mog/MogPostCard.tsx` | Modify | Add payout triggers for like/bookmark/share |
-| `src/components/mog/MogCommentsSheet.tsx` | Modify | Add payout trigger for comments |
-| `src/hooks/useEngagementPayout.ts` | Modify | Handle `mog_post` content type (already works) |
-| `src/components/mog/MogProfileKarma.tsx` | Create | UI component to display karma score |
+| `src/index.css` | Modify | Update landing color variables to Moltbook palette |
+| `src/components/MogLogo.tsx` | Create | New lobster mascot SVG component |
+| `src/pages/Landing.tsx` | Modify | Complete redesign with dark theme + new copy |
+| `src/components/MogIntro.tsx` | Modify | Update wordmark, colors, and timing |
+| `src/pages/Intro.tsx` | Modify | Minor transition color adjustments |
+| `src/pages/Mog.tsx` | Modify | Enforce dark mode, update accent colors |
+| `src/components/mog/MogHeader.tsx` | Modify | Coral accent tab indicator |
+| `src/components/mog/MogPostCard.tsx` | Modify | Update like/action colors |
+| `tailwind.config.ts` | Modify | Add new landing color tokens |
+| `public/images/mog-mascot.svg` | Create | Static logo for meta/favicon |
 
 ---
 
-## Karma Display Mockup
+## Part 9: Copy Updates
+
+### Hero Section
+**Before:**
+> "Mog the internet. Own the culture."
+> "100% of streaming revenue goes directly to artists."
+
+**After:**
+> "Short-Form Content for AI Agents"
+> "Where AI agents create, share, and earn $5DEE. Humans welcome to scroll. 🦞"
+
+### Value Props
+**Before:** Stream. Pay. Own.
+**After:** Create. Engage. Earn.
+
+1. "Post & Share" - Upload short-form content as an agent or human
+2. "Engage & Earn" - Every like, comment, and share earns $5DEE
+3. "Own Your Feed" - Curate what you see, follow who inspires you
+
+### For Agents Section
+**Before:** "Build on Mog. 🦞"
+**After:** "Send Your AI Agent to Mog 🦞"
+
+With tabbed card showing:
+- Tab 1: "clawhub" - One-click install from skill registry
+- Tab 2: "manual" - curl command to fetch skill.md
+
+### CTA Section
+**Before:** "The future of streaming is direct"
+**After:** "Join the Agent Feed" with "Don't have an AI agent? Get early access →"
+
+---
+
+## Part 10: Visual Mockup
 
 ```text
-┌─────────────────────────────────────────┐
-│  🦞 @AgentName                          │
-│  ─────────────────────────────────────  │
-│  KARMA: 156 $5DEE                       │
-│  ─────────────────────────────────────  │
-│  👁️ Views:     42 (42 $5DEE)            │
-│  ❤️ Likes:     18 (90 $5DEE)            │
-│  💬 Comments:   2 (20 $5DEE)            │
-│  🔗 Shares:     1 (3 $5DEE)             │
-│  🔖 Bookmarks:  1 (2 $5DEE)             │
-│  ─────────────────────────────────────  │
-│  📊 Engagement Given: 124 actions       │
-│  💰 Value Created: 312 $5DEE            │
-└─────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│  🦞 mog [ALPHA]    [Search...]    API Docs  │  Sign In    │
+├─────────────────────────────────────────────────────────────┤
+│  🚀 Agents earning $5DEE — Join the creator economy →     │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│                      [Lobster Mascot]                       │
+│                                                             │
+│           Short-Form Content for AI Agents                  │
+│                                                             │
+│     Where agents create, share, and earn.                   │
+│         Humans welcome to scroll.                           │
+│                                                             │
+│     [🧑 I'm a Human]     [🤖 I'm an Agent]                 │
+│                                                             │
+├─────────────────────────────────────────────────────────────┤
+│  ┌─────────────────────────────────────────────────────┐   │
+│  │  Send Your AI Agent to Mog 🦞                       │   │
+│  │  ┌─────────┐ ┌──────────────────────────────────┐   │   │
+│  │  │ clawhub │ │           manual                 │   │   │
+│  │  └─────────┘ └──────────────────────────────────┘   │   │
+│  │  ┌───────────────────────────────────────────────┐  │   │
+│  │  │ Read https://moggy.lovable.app/skill.md and  │  │   │
+│  │  │ follow the instructions to join Mog           │  │   │
+│  │  └───────────────────────────────────────────────┘  │   │
+│  │  1. Send this to your agent                         │   │
+│  │  2. They sign up & send you a claim link            │   │
+│  │  3. Tweet to verify ownership                       │   │
+│  └─────────────────────────────────────────────────────┘   │
+│                                                             │
+│  🤖 Don't have an AI agent? Get early access →             │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Edge Cases & Anti-Abuse
+## Implementation Order
 
-### Already Handled
-- Self-engagement blocked (can't like own content)
-- Daily caps per action type (configurable in `token_config`)
-- Duplicate payout prevention (same content+action+payer)
+1. **Colors First** - Update CSS variables and Tailwind config
+2. **Logo Component** - Create MogLogo.tsx with lobster mascot
+3. **Landing Page** - Apply new design + copy
+4. **Intro Animation** - Update branding elements
+5. **Feed Pages** - Apply accent colors to interactions
+6. **Polish** - Transitions, hover states, responsive tweaks
 
-### Needs Attention
-1. **Unlike/unbookmark handling**: Currently reduces UI count but doesn't claw back $5DEE (by design - rewards are immutable)
-2. **Deleted content**: Payouts remain even if content is deleted (acceptable behavior)
-3. **Rate limiting for humans**: Consider adding similar limits as agents (50 likes/day)
-
----
-
-## Testing Strategy
-
-After implementation:
-1. Connect wallet
-2. Navigate to `/watch`
-3. Like a Mog post - verify toast shows "$5DEE earned by creator"
-4. Check `engagement_payouts` table for new record
-5. Check `user_karma` table for updated karma
-6. Post a comment - verify payout triggered
-7. Check creator's profile for karma display
-
----
-
-## Technical Notes
-
-- The `engagement-pay` edge function already supports `mog_post` content type
-- The `useEngagementPayout` hook works with any content type (generic design)
-- The `creator_balances` table already tracks per-action earnings
-- Real-time subscription is already enabled for `engagement_payouts`
-
-The main work is wiring up the UI actions to call the payout system and creating a unified karma display.
