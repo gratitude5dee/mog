@@ -26,6 +26,13 @@ export default {
           charcoal: "hsl(var(--landing-charcoal))",
           coral: "hsl(var(--landing-coral))",
           teal: "hsl(var(--landing-teal))",
+          bg: "hsl(var(--landing-bg))",
+          "bg-elevated": "hsl(var(--landing-bg-elevated))",
+          "coral-light": "hsl(var(--landing-coral-light))",
+          "teal-light": "hsl(var(--landing-teal-light))",
+          text: "hsl(var(--landing-text))",
+          "text-muted": "hsl(var(--landing-text-muted))",
+          border: "hsl(var(--landing-border))",
         },
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -97,6 +104,14 @@ export default {
         equalizer: {
           "0%, 100%": { height: "4px" },
           "50%": { height: "16px" },
+        },
+        float: {
+          "0%, 100%": { transform: "translateY(0px)" },
+          "50%": { transform: "translateY(-10px)" },
+        },
+        wiggle: {
+          "0%, 100%": { transform: "rotate(-3deg)" },
+          "50%": { transform: "rotate(3deg)" },
         },
         "accordion-down": {
           from: { height: "0" },

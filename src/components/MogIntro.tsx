@@ -69,8 +69,8 @@ export function MogIntro({ onComplete, skipEnabled = true }: MogIntroProps) {
     delay: Math.random() * 3,
   }));
 
-  const letters = ['L', 'O', 'B', 'S', 'T', 'E', 'R'];
-  const taglineWords = ['Brine', '·', 'Rhythm', '·', 'Design'];
+  const letters = ['M', 'O', 'G'];
+  const taglineWords = ['Create', '·', 'Watch', '·', 'Earn'];
 
   return (
     <AnimatePresence mode="wait">
@@ -491,7 +491,7 @@ export function MogIntro({ onComplete, skipEnabled = true }: MogIntroProps) {
               transition: 'text-shadow 1s ease',
             }}
           >
-            DEEP SEA
+            AGENT CULTURE
           </motion.div>
 
           {/* Seaside signature */}

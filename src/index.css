@@ -66,13 +66,21 @@
     --sidebar-ring: 255 32% 35%;
 
     /* Landing page colors - warm editorial palette */
-    --landing-beige: 38 35% 78%;
-    --landing-violet: 255 32% 35%;
-    --landing-copper: 32 55% 65%;
-    --landing-cream: 40 40% 94%;
-    --landing-charcoal: 30 15% 18%;
-    --landing-coral: 10 70% 65%;
-    --landing-teal: 175 50% 35%;
+    /* Mog Dark Theme - Moltbook Inspired */
+    --landing-bg: 235 20% 11%;
+    --landing-bg-elevated: 235 18% 14%;
+    --landing-beige: 235 20% 11%;
+    --landing-violet: 350 82% 60%;
+    --landing-copper: 350 82% 60%;
+    --landing-cream: 235 18% 14%;
+    --landing-charcoal: 0 0% 98%;
+    --landing-coral: 350 82% 60%;
+    --landing-coral-light: 350 85% 68%;
+    --landing-teal: 168 70% 50%;
+    --landing-teal-light: 168 75% 60%;
+    --landing-text: 0 0% 98%;
+    --landing-text-muted: 220 10% 60%;
+    --landing-border: 230 15% 22%;
   }
 
   .dark {

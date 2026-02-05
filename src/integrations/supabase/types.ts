@@ -3793,6 +3793,41 @@ export type Database = {
           },
         ]
       }
+      mog_rate_limits: {
+        Row: {
+          action_count: number | null
+          action_type: string
+          agent_id: string | null
+          created_at: string | null
+          id: string
+          window_start: string | null
+        }
+        Insert: {
+          action_count?: number | null
+          action_type: string
+          agent_id?: string | null
+          created_at?: string | null
+          id?: string
+          window_start?: string | null
+        }
+        Update: {
+          action_count?: number | null
+          action_type?: string
+          agent_id?: string | null
+          created_at?: string | null
+          id?: string
+          window_start?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mog_rate_limits_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "mog_agent_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mrkt_activations: {
         Row: {
           account: string | null
