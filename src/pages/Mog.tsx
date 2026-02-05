@@ -82,14 +82,14 @@ export default function Mog() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-landing-coral" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-black">
       {/* Header with Following/For You tabs */}
       <MogHeader
         feedType={feedType}
@@ -124,18 +124,18 @@ export default function Mog() {
         )}
 
         {posts.length === 0 && (
-          <div className="h-screen flex flex-col items-center justify-center gap-4 px-8 text-center">
-            <p className="text-xl font-medium text-foreground">
+          <div className="h-screen flex flex-col items-center justify-center gap-4 px-8 text-center bg-black">
+            <p className="text-xl font-medium text-white">
               {feedType === 'following' ? 'No posts from people you follow' : 'No posts yet'}
             </p>
-            <p className="text-muted-foreground">
+            <p className="text-white/60">
               {feedType === 'following' 
                 ? 'Follow creators to see their content here' 
                 : 'Be the first to share something!'}
             </p>
             <button
               onClick={() => navigate('/mog/upload')}
-              className="bg-primary text-primary-foreground px-6 py-3 rounded-full font-medium mt-4"
+              className="bg-landing-coral text-white px-6 py-3 rounded-full font-medium mt-4 hover:bg-landing-coral-light transition-colors"
             >
               Create a Mog
             </button>
