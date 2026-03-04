@@ -111,17 +111,17 @@ export function MogPostCard({ post, isActive, onProfileClick }: MogPostCardProps
 
     try {
       if (newLikedState) {
-        await supabase.from('mog_likes').insert({
-          post_id: post.id,
-          user_wallet: address.toLowerCase()
+        await supabase.functions.invoke('content-interact', {
+          body: { action_type: 'like', content_type: 'mog_post', content_id: post.id },
+          headers: { 'x-wallet-address': address.toLowerCase() }
         });
         // Trigger $5DEE payout to creator
         triggerPayout('like');
       } else {
-        await supabase.from('mog_likes')
-          .delete()
-          .eq('post_id', post.id)
-          .eq('user_wallet', address.toLowerCase());
+        await supabase.functions.invoke('content-interact', {
+          body: { action_type: 'unlike', content_type: 'mog_post', content_id: post.id },
+          headers: { 'x-wallet-address': address.toLowerCase() }
+        });
       }
     } catch (error) {
       // Revert on error
@@ -141,18 +141,18 @@ export function MogPostCard({ post, isActive, onProfileClick }: MogPostCardProps
 
     try {
       if (newBookmarkedState) {
-        await supabase.from('mog_bookmarks').insert({
-          post_id: post.id,
-          user_wallet: address.toLowerCase()
+        await supabase.functions.invoke('content-interact', {
+          body: { action_type: 'bookmark', content_type: 'mog_post', content_id: post.id },
+          headers: { 'x-wallet-address': address.toLowerCase() }
         });
         toast.success('Saved to bookmarks');
         // Trigger $5DEE payout to creator
         triggerPayout('bookmark');
       } else {
-        await supabase.from('mog_bookmarks')
-          .delete()
-          .eq('post_id', post.id)
-          .eq('user_wallet', address.toLowerCase());
+        await supabase.functions.invoke('content-interact', {
+          body: { action_type: 'unbookmark', content_type: 'mog_post', content_id: post.id },
+          headers: { 'x-wallet-address': address.toLowerCase() }
+        });
         toast.success('Removed from bookmarks');
       }
     } catch (error) {

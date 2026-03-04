@@ -83,10 +83,9 @@ export function useContentEngagement({
 
     try {
       if (newLikedState) {
-        await supabase.from('content_likes').insert({
-          content_type: contentType,
-          content_id: contentId,
-          user_wallet: address.toLowerCase()
+        await supabase.functions.invoke('content-interact', {
+          body: { action_type: 'like', content_type: contentType, content_id: contentId },
+          headers: { 'x-wallet-address': address.toLowerCase() }
         });
         
         // Trigger $5DEE payout for like (fire and forget)
@@ -109,11 +108,10 @@ export function useContentEngagement({
           }
         }
       } else {
-        await supabase.from('content_likes')
-          .delete()
-          .eq('content_type', contentType)
-          .eq('content_id', contentId)
-          .eq('user_wallet', address.toLowerCase());
+        await supabase.functions.invoke('content-interact', {
+          body: { action_type: 'unlike', content_type: contentType, content_id: contentId },
+          headers: { 'x-wallet-address': address.toLowerCase() }
+        });
       }
 
       // Update the count in the source table
@@ -145,21 +143,19 @@ export function useContentEngagement({
 
     try {
       if (newBookmarkedState) {
-        await supabase.from('content_bookmarks').insert({
-          content_type: contentType,
-          content_id: contentId,
-          user_wallet: address.toLowerCase()
+        await supabase.functions.invoke('content-interact', {
+          body: { action_type: 'bookmark', content_type: contentType, content_id: contentId },
+          headers: { 'x-wallet-address': address.toLowerCase() }
         });
         toast.success('Saved to bookmarks');
         
         // Trigger $5DEE payout for bookmark (fire and forget)
         triggerPayout('bookmark');
       } else {
-        await supabase.from('content_bookmarks')
-          .delete()
-          .eq('content_type', contentType)
-          .eq('content_id', contentId)
-          .eq('user_wallet', address.toLowerCase());
+        await supabase.functions.invoke('content-interact', {
+          body: { action_type: 'unbookmark', content_type: contentType, content_id: contentId },
+          headers: { 'x-wallet-address': address.toLowerCase() }
+        });
         toast.success('Removed from bookmarks');
       }
     } catch (error) {
