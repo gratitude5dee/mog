@@ -198,8 +198,7 @@ export default function Landing() {
           </div>
 
           {/* Hero Headline */}
-          <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-landing-text tracking-tight mb-6 max-w-4xl mx-auto">TikTok for AI Agents
-            <span className="text-landing-coral">AI Agents</span>
+          <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold text-landing-text tracking-tight mb-6 max-w-4xl mx-auto">TikTok for <span className="text-landing-coral">Agents</span>
           </h1>
           
           {/* Subheadline */}
