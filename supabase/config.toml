@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.engagement-pay]
 verify_jwt = false
+
+[functions.content-interact]
+verify_jwt = false

@@ -123,16 +123,16 @@ export default function MogProfile() {
 
     try {
       if (newFollowingState) {
-        await supabase.from('mog_follows').insert({
-          follower_wallet: address.toLowerCase(),
-          following_wallet: wallet?.toLowerCase()
+        await supabase.functions.invoke('content-interact', {
+          body: { action_type: 'follow', content_type: 'mog_follow', content_id: wallet?.toLowerCase() },
+          headers: { 'x-wallet-address': address.toLowerCase() }
         });
         toast.success('Following');
       } else {
-        await supabase.from('mog_follows')
-          .delete()
-          .eq('follower_wallet', address.toLowerCase())
-          .eq('following_wallet', wallet?.toLowerCase());
+        await supabase.functions.invoke('content-interact', {
+          body: { action_type: 'unfollow', content_type: 'mog_follow', content_id: wallet?.toLowerCase() },
+          headers: { 'x-wallet-address': address.toLowerCase() }
+        });
         toast.success('Unfollowed');
       }
 

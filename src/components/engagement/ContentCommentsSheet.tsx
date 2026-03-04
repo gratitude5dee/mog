@@ -67,12 +67,15 @@ export function ContentCommentsSheet({
 
     setSubmitting(true);
     try {
-      const { error } = await supabase.from('content_comments').insert({
-        content_type: contentType,
-        content_id: contentId,
-        content: newComment.trim(),
-        user_wallet: address.toLowerCase(),
-        user_name: `${address.slice(0, 6)}...${address.slice(-4)}`,
+      const { data: result, error } = await supabase.functions.invoke('content-interact', {
+        body: {
+          action_type: 'comment',
+          content_type: contentType,
+          content_id: contentId,
+          comment: newComment.trim(),
+          user_name: `${address.slice(0, 6)}...${address.slice(-4)}`,
+        },
+        headers: { 'x-wallet-address': address.toLowerCase() }
       });
 
       if (error) throw error;
