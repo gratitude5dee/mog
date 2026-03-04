@@ -149,15 +149,10 @@ async function realVerify(token: string, audience: string): Promise<VerifyResult
   }
 }
 
-// Main export - currently uses mock, swap when ready
+// Main export - uses real API verification
 export async function verifyMoltbookIdentity(
   token: string,
   audience: string = "mog.lovable.app"
 ): Promise<VerifyResult> {
-  // TODO: Uncomment this line and remove mockVerify when MOLTBOOK_APP_KEY is available
-  // return await realVerify(token, audience);
-  
-  // Using mock verification for development
-  console.log(`[Moltbook Mock] Verifying token: ${token.slice(0, 10)}...`);
-  return mockVerify(token);
+  return await realVerify(token, audience);
 }
