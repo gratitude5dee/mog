@@ -2,3 +2,6 @@ project_id = "ixkkrousepsiorwlaycp"
 
 [functions.verify-moltbook-identity]
 verify_jwt = false
+
+[functions.engagement-pay]
+verify_jwt = false
