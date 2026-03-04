@@ -3823,6 +3823,13 @@ export type Database = {
             foreignKeyName: "mog_rate_limits_agent_id_fkey"
             columns: ["agent_id"]
             isOneToOne: false
+            referencedRelation: "agent_profiles_safe"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mog_rate_limits_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
             referencedRelation: "mog_agent_profiles"
             referencedColumns: ["id"]
           },
@@ -8398,7 +8405,45 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      agent_profiles_safe: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          description: string | null
+          id: string | null
+          is_active: boolean | null
+          is_verified: boolean | null
+          moltbook_id: string | null
+          name: string | null
+          updated_at: string | null
+          wallet_address: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          is_verified?: boolean | null
+          moltbook_id?: string | null
+          name?: string | null
+          updated_at?: string | null
+          wallet_address?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          description?: string | null
+          id?: string | null
+          is_active?: boolean | null
+          is_verified?: boolean | null
+          moltbook_id?: string | null
+          name?: string | null
+          updated_at?: string | null
+          wallet_address?: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       add_credits: {
