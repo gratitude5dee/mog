@@ -35,18 +35,18 @@
          className={cn(sizeClasses[size], "w-auto")}
        >
          <defs>
-           <linearGradient id="mogBodyGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-             <stop offset="0%" stopColor="hsl(350 82% 60%)" />
-             <stop offset="50%" stopColor="hsl(350 82% 55%)" />
-             <stop offset="100%" stopColor="hsl(350 75% 50%)" />
-           </linearGradient>
-           <linearGradient id="mogHighlightGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-             <stop offset="0%" stopColor="hsl(350 85% 70%)" />
-             <stop offset="100%" stopColor="hsl(350 82% 60%)" />
-           </linearGradient>
-           <linearGradient id="mogTealGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-             <stop offset="0%" stopColor="hsl(168 70% 50%)" />
-             <stop offset="100%" stopColor="hsl(168 75% 60%)" />
+        <linearGradient id="mogBodyGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="hsl(255 32% 40%)" />
+              <stop offset="50%" stopColor="hsl(255 32% 35%)" />
+              <stop offset="100%" stopColor="hsl(255 30% 30%)" />
+            </linearGradient>
+            <linearGradient id="mogHighlightGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="hsl(255 35% 50%)" />
+              <stop offset="100%" stopColor="hsl(255 32% 40%)" />
+            </linearGradient>
+            <linearGradient id="mogTealGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="hsl(32 55% 65%)" />
+              <stop offset="100%" stopColor="hsl(32 60% 72%)" />
            </linearGradient>
          </defs>
          
@@ -107,7 +107,7 @@
        )}
        
        {showBadge && (
-         <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-landing-coral/20 text-landing-coral">
+         <span className="text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded bg-landing-violet/20 text-landing-violet">
            Alpha
          </span>
        )}
