@@ -1,4 +1,3 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -6,7 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-wallet-address',
 };
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -23,7 +22,6 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get wallet from header
     const walletAddress = req.headers.get('x-wallet-address')?.toLowerCase();
     if (!walletAddress) {
       return new Response(
@@ -35,7 +33,6 @@ serve(async (req) => {
     const body = await req.json();
     const { action_type, content_type, content_id, comment, user_name } = body;
 
-    // Validate required fields
     if (!action_type || !content_type || !content_id) {
       return new Response(
         JSON.stringify({ success: false, error: 'Missing required fields', hint: 'Required: action_type, content_type, content_id' }),
@@ -51,7 +48,7 @@ serve(async (req) => {
       );
     }
 
-    let result: any = { success: true };
+    let result: Record<string, unknown> = { success: true };
 
     switch (action_type) {
       case 'like': {
@@ -70,11 +67,11 @@ serve(async (req) => {
 
       case 'unlike': {
         const table = content_type === 'mog_post' ? 'mog_likes' : 'content_likes';
-        const query = supabase.from(table).delete().eq('user_wallet', walletAddress);
+        let query = supabase.from(table).delete().eq('user_wallet', walletAddress);
         if (content_type === 'mog_post') {
-          query.eq('post_id', content_id);
+          query = query.eq('post_id', content_id);
         } else {
-          query.eq('content_id', content_id).eq('content_type', content_type);
+          query = query.eq('content_id', content_id).eq('content_type', content_type);
         }
         const { error } = await query;
         if (error) throw error;
@@ -98,11 +95,11 @@ serve(async (req) => {
 
       case 'unbookmark': {
         const table = content_type === 'mog_post' ? 'mog_bookmarks' : 'content_bookmarks';
-        const query = supabase.from(table).delete().eq('user_wallet', walletAddress);
+        let query = supabase.from(table).delete().eq('user_wallet', walletAddress);
         if (content_type === 'mog_post') {
-          query.eq('post_id', content_id);
+          query = query.eq('post_id', content_id);
         } else {
-          query.eq('content_id', content_id).eq('content_type', content_type);
+          query = query.eq('content_id', content_id).eq('content_type', content_type);
         }
         const { error } = await query;
         if (error) throw error;
@@ -117,7 +114,6 @@ serve(async (req) => {
             { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
           );
         }
-
         const { data: newComment, error } = await supabase
           .from('content_comments')
           .insert({
@@ -129,7 +125,6 @@ serve(async (req) => {
           })
           .select()
           .single();
-
         if (error) throw error;
         result.message = 'Comment added!';
         result.comment_id = newComment.id;
@@ -141,7 +136,7 @@ serve(async (req) => {
           .from('mog_follows')
           .upsert({
             follower_wallet: walletAddress,
-            following_wallet: content_id, // content_id is the wallet to follow
+            following_wallet: content_id,
           }, { onConflict: 'follower_wallet,following_wallet' });
         if (error) throw error;
         result.message = 'Following!';
