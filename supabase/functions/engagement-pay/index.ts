@@ -6,7 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Payout rates in $5DEE tokens (stored as whole numbers, will be multiplied by 10^18 for actual transfer)
+// Payout rates in $5DEE tokens
 const PAYOUT_RATES: Record<string, number> = {
   view: 1,
   like: 5,
@@ -15,10 +15,8 @@ const PAYOUT_RATES: Record<string, number> = {
   bookmark: 2,
 };
 
-// Contract address for $5DEE token (for future mainnet integration)
 const FIVE_DEE_CONTRACT = "0x954fA8cfb797a26D4878ee212004889a2C9D7624";
 
-// Generate a mock transaction hash for testnet simulation
 function generateMockTxHash(): string {
   const chars = '0123456789abcdef';
   let hash = '0x';
@@ -29,7 +27,6 @@ function generateMockTxHash(): string {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -37,11 +34,38 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+
+    // --- JWT Authentication ---
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const token = authHeader.replace('Bearer ', '');
+    const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } }
+    });
+
+    const { data: claimsData, error: claimsError } = await authClient.auth.getUser(token);
+    if (claimsError || !claimsData?.user) {
+      console.error('Auth failed:', claimsError?.message);
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const userId = claimsData.user.id;
+    // --- End Authentication ---
+
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { content_type, content_id, action_type, payer_wallet } = await req.json();
 
-    // Validate required fields
     if (!content_type || !content_id || !action_type || !payer_wallet) {
       return new Response(
         JSON.stringify({ error: 'Missing required fields' }),
@@ -49,7 +73,6 @@ serve(async (req) => {
       );
     }
 
-    // Validate action type
     if (!PAYOUT_RATES[action_type]) {
       return new Response(
         JSON.stringify({ error: 'Invalid action type' }),
@@ -57,7 +80,29 @@ serve(async (req) => {
       );
     }
 
-    // Get payout rate from config (or use default)
+    // Verify the payer_wallet belongs to the authenticated user
+    const { data: walletUser } = await supabase
+      .from('wallet_users')
+      .select('wallet_address')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('wallet_address')
+      .eq('id', userId)
+      .maybeSingle();
+
+    const userWallet = walletUser?.wallet_address || profile?.wallet_address;
+    if (!userWallet || userWallet.toLowerCase() !== payer_wallet.toLowerCase()) {
+      console.error('Wallet mismatch: authenticated user wallet does not match payer_wallet');
+      return new Response(
+        JSON.stringify({ error: 'Wallet address does not match authenticated user' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Get payout config
     const { data: configData } = await supabase
       .from('token_config')
       .select('payout_amount, is_enabled, daily_cap_per_user')
@@ -75,7 +120,7 @@ serve(async (req) => {
       );
     }
 
-    // Get creator wallet from content table
+    // Get creator wallet from content
     let tableName: string;
     let walletField: string;
     
@@ -116,7 +161,7 @@ serve(async (req) => {
       );
     }
 
-    // Anti-abuse: Check if payer is trying to pay themselves
+    // Anti-abuse: no self-pay
     if (payer_wallet.toLowerCase() === creatorWallet.toLowerCase()) {
       return new Response(
         JSON.stringify({ error: 'Cannot earn from own content', skipped: true }),
@@ -124,7 +169,7 @@ serve(async (req) => {
       );
     }
 
-    // Rate limiting: Check daily payout count for this user
+    // Rate limiting: daily cap
     const today = new Date().toISOString().split('T')[0];
     const { count: dailyCount } = await supabase
       .from('engagement_payouts')
@@ -139,7 +184,7 @@ serve(async (req) => {
       );
     }
 
-    // Check for duplicate payout (same content + action + payer)
+    // Duplicate check
     const { data: existingPayout } = await supabase
       .from('engagement_payouts')
       .select('id')
@@ -156,21 +201,11 @@ serve(async (req) => {
       );
     }
 
-    // SIMULATION MODE: Generate mock transaction hash
-    // In production, this would be replaced with actual Thirdweb transfer
+    // Simulation mode
     const mockTxHash = generateMockTxHash();
     
-    console.log(`[SIMULATION] Payout triggered:
-      Action: ${action_type}
-      Amount: ${payoutAmount} $5DEE
-      From: ${payer_wallet}
-      To: ${creatorWallet}
-      Content: ${content_type}/${content_id}
-      Contract: ${FIVE_DEE_CONTRACT}
-      Mock TX: ${mockTxHash}
-    `);
+    console.log(`[SIMULATION] Payout: ${action_type} ${payoutAmount} $5DEE | ${payer_wallet} -> ${creatorWallet} | user: ${userId}`);
 
-    // Log the payout to database
     const { data: payout, error: payoutError } = await supabase
       .from('engagement_payouts')
       .insert({
@@ -181,7 +216,7 @@ serve(async (req) => {
         creator_wallet: creatorWallet.toLowerCase(),
         amount: payoutAmount,
         tx_hash: mockTxHash,
-        status: 'confirmed', // Simulated as confirmed immediately
+        status: 'confirmed',
         confirmed_at: new Date().toISOString(),
       })
       .select()
