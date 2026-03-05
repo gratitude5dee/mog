@@ -126,7 +126,7 @@ serve(async (req) => {
       return jsonResponse({ error: "content_not_found" }, 404);
     }
 
-    const creatorWallet = String((contentRow as Record<string, unknown>)[sourceWalletField] || "").toLowerCase();
+    const creatorWallet = String((contentRow as unknown as Record<string, unknown>)[sourceWalletField] || "").toLowerCase();
 
     if (!creatorWallet) {
       return jsonResponse({ error: "creator_wallet_missing" }, 404);
