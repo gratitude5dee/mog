@@ -72,7 +72,6 @@ Deno.serve(async (req) => {
           thumbnail_url,
           title,
           description,
-          article_body,
           hashtags,
           creator_wallet,
           creator_type,
