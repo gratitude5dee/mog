@@ -1,55 +1,34 @@
 
 
-# Landing Page: Switch to EARTONE Sand Colorway
+## Plan: Fix 10 Build Errors
 
-The landing page currently uses the dark Moltbook-inspired palette (deep charcoal `#16181d`, coral, teal). The rest of the app uses the warm sand/beige "EARTONE" palette from the `:root` variables (background `38 35% 78%`, primary `255 32% 35%`, accent `32 55% 65%`). This plan aligns the landing page to match.
+### 1. `moltbook.ts` — `explicit` possibly undefined (1 error)
 
----
+`Deno.env.get()` returns `string | undefined`, not `string | null`. The null check on line 32 doesn't narrow properly.
 
-## Changes
+**Fix:** Change `if (explicit !== null)` to `if (explicit !== undefined)` (or just `if (explicit)`).
 
-### 1. Update CSS Landing Variables (`src/index.css`, lines 68-85)
+### 2. `engagement-pay/index.ts` — Type cast error (1 error)
 
-Replace the dark Moltbook landing variables with EARTONE-derived values:
+Line 129: The `.single()` return type doesn't match `Record<string, unknown>` cast. Fix by adding an intermediate `unknown` cast: `(contentRow as unknown as Record<string, unknown>)`.
 
-```css
---landing-bg: 38 35% 78%;              /* warm sand background */
---landing-bg-elevated: 40 40% 94%;      /* cream card surfaces */
---landing-beige: 38 35% 78%;
---landing-violet: 255 32% 35%;          /* deep purple primary */
---landing-copper: 32 55% 65%;           /* warm copper accent */
---landing-cream: 40 40% 94%;
---landing-charcoal: 30 15% 18%;         /* dark text */
---landing-coral: 255 32% 35%;           /* primary purple (replaces coral) */
---landing-coral-light: 255 30% 50%;     /* lighter purple hover */
---landing-teal: 32 55% 65%;             /* copper as secondary */
---landing-teal-light: 32 60% 72%;       /* lighter copper hover */
---landing-text: 30 15% 18%;             /* dark charcoal text */
---landing-text-muted: 30 15% 40%;       /* muted brown text */
---landing-border: 32 40% 70%;           /* warm border */
-```
+### 3. `moltbook-interact/index.ts` — Property access on `never` + client type mismatch (5 errors)
 
-### 2. Update Landing Page Components (`src/pages/Landing.tsx`)
+Lines 41-57: The `.maybeSingle()` calls return typed data that TS can't resolve, resulting in `never` types. Fix by casting `data` as `any` in each branch.
 
-- **LobsterHero SVG gradients**: Change coral fills to EARTONE copper/purple. Eye background from `#16181d` to cream.
-- **Code blocks**: Change `bg-[#0d1117]` dark code backgrounds to `bg-[hsl(30,15%,18%)]` (charcoal from EARTONE palette) so they contrast against sand without the jarring pure-black look.
-- **API table**: Update method badge colors from green/blue neon to earthy tones (e.g., deep green and purple tints).
-- **Announcement banner**: From coral to primary purple.
-- **Gradient sections**: `from-landing-coral/30` → `from-landing-violet/20` for subtler earthy gradients.
-- **Testimonial avatar gradients**: Already use `from-landing-copper to-landing-violet` — will work naturally with new values.
+Line 158: The `supabaseAdmin` type doesn't match the function parameter. Fix by typing the parameter as `any` instead of `ReturnType<typeof createClient>`.
 
-### 3. Update MogLogo Badge (`src/components/MogLogo.tsx`)
+### 4. `MogUpload.tsx` — `maxDurationSeconds` not on all union members (3 errors)
 
-- Change the "Alpha" badge from `bg-[hsl(350,82%,60%)]` coral to `bg-[hsl(255,32%,35%)]` (EARTONE primary purple).
-- Update any hardcoded coral references in the SVG gradients to copper/purple.
+Lines 155-158: `FILE_RULES[contentType]` is a union where `image` lacks `maxDurationSeconds`. Fix by narrowing with `'maxDurationSeconds' in rule` check instead of accessing the property directly.
 
----
+### Summary of Changes
 
-## What Stays the Same
-- All copy and content structure remains identical
-- The Mog feed (`/watch`) keeps its dark theme — only the landing page changes
-- Component structure (ValuePropCard, StatCard, etc.) unchanged — colors flow through CSS variables automatically
-
-## Result
-The landing page will use warm sand backgrounds, cream cards, purple CTAs, and copper accents — matching the app's EARTONE design system throughout.
+| File | Fix |
+|------|-----|
+| `_shared/moltbook.ts:32` | `!== null` → `!== undefined` |
+| `engagement-pay/index.ts:129` | Add `unknown` intermediate cast |
+| `moltbook-interact/index.ts:36` | Parameter type → `any` |
+| `moltbook-interact/index.ts:42,47,52,57` | Cast `data` as `any` |
+| `MogUpload.tsx:155-158` | Use `in` operator to narrow union |
 
