@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logOpsEvent } from "../_shared/ops-log.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -30,6 +31,7 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const startedAt = Date.now();
     const { track_id: trackId, payer_wallet: payerWallet, mode_preference: modePreferenceRaw } = await req.json();
     const wallet = String(payerWallet || "").toLowerCase();
     const modePreference = normalizeMode(modePreferenceRaw);
@@ -43,6 +45,28 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
       { auth: { persistSession: false } },
     );
+    const emit = async (
+      level: "info" | "warn" | "error",
+      eventName: string,
+      modeUsed: string | null,
+      outcome: string,
+      metadata: Record<string, unknown> = {},
+      restoreSource: string | null = null,
+    ) =>
+      await logOpsEvent(supabaseAdmin, {
+        component: "stream-session-active",
+        event_name: eventName,
+        level,
+        mode_used: modeUsed,
+        restore_source: restoreSource,
+        outcome,
+        metadata: {
+          track_id: trackId,
+          wallet,
+          latency_ms: Date.now() - startedAt,
+          ...metadata,
+        },
+      });
 
     const nowIso = new Date().toISOString();
 
@@ -57,6 +81,7 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (canonicalSession) {
+      await emit("info", "stream_session_restore", "canonical", "success", {}, "stream_sessions");
       return jsonResponse({
         success: true,
         mode_used: "canonical",
@@ -66,6 +91,7 @@ Deno.serve(async (req) => {
     }
 
     if (modePreference === "gateway") {
+      await emit("warn", "stream_session_restore", "gateway", "error", {}, null);
       return jsonResponse({ success: false, mode_used: "gateway", error: "not_found" }, 404);
     }
 
@@ -80,9 +106,11 @@ Deno.serve(async (req) => {
       .maybeSingle();
 
     if (!legacySession) {
+      await emit("warn", "stream_session_restore", "legacy", "error", {}, null);
       return jsonResponse({ success: false, mode_used: "legacy", error: "not_found" }, 404);
     }
 
+    await emit("info", "stream_session_restore", "legacy", "success", {}, "music_streams");
     return jsonResponse({
       success: true,
       mode_used: "legacy",

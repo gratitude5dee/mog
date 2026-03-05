@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { logOpsEvent } from "../_shared/ops-log.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -47,6 +48,16 @@ function getGatewayUrl(): string {
   return Deno.env.get("X402_GATEWAY_URL") || Deno.env.get("VITE_X402_GATEWAY_URL") || "http://localhost:4020";
 }
 
+function parseCanaryWallets(rawValue: string | null): Set<string> {
+  return new Set(
+    String(rawValue || "")
+      .split(",")
+      .map((wallet) => wallet.trim().toLowerCase())
+      .filter((wallet) => /^0x[a-f0-9]{40}$/i.test(wallet)),
+      .slice(0, 5),
+  );
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -57,6 +68,7 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const startedAt = Date.now();
     const body = await req.json();
     const trackId = String(body?.track_id || "");
     const payerWallet = String(body?.payer_wallet || "").toLowerCase();
@@ -74,6 +86,30 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
       { auth: { persistSession: false } },
     );
+    const canaryWallets = parseCanaryWallets(Deno.env.get("X402_CANARY_WALLETS"));
+    const walletInCanary = canaryWallets.size === 0 || canaryWallets.has(payerWallet);
+    const emit = async (
+      level: "info" | "warn" | "error",
+      eventName: string,
+      modeUsed: string | null,
+      outcome: string,
+      metadata: Record<string, unknown> = {},
+      restoreSource: string | null = null,
+    ) =>
+      await logOpsEvent(supabaseAdmin, {
+        component: "pay-stream",
+        event_name: eventName,
+        level,
+        mode_used: modeUsed,
+        restore_source: restoreSource,
+        outcome,
+        metadata: {
+          track_id: trackId,
+          wallet: payerWallet,
+          latency_ms: Date.now() - startedAt,
+          ...metadata,
+        },
+      });
 
     const { data: track, error: trackError } = await supabaseAdmin
       .from("music_tracks")
@@ -82,10 +118,14 @@ Deno.serve(async (req) => {
       .single();
 
     if (trackError || !track) {
+      await emit("warn", "pay_stream_track_not_found", effectiveMode, "error", {
+        track_error: trackError?.message || null,
+      });
       return jsonResponse({ error: "track_not_found" }, 404);
     }
 
     if (!track.artist_wallet) {
+      await emit("warn", "pay_stream_artist_wallet_missing", effectiveMode, "error");
       return jsonResponse({ error: "artist_wallet_missing" }, 422);
     }
 
@@ -109,6 +149,11 @@ Deno.serve(async (req) => {
 
       if (sessionError || !sessionId) {
         console.error("[pay-stream] failed creating canonical stream session", sessionError);
+        await emit("error", "pay_stream_legacy_session_create_failed", "legacy", "error", {
+          fallback_from_gateway: Boolean(fallbackFrom),
+          fallback_reason: fallbackFrom?.error || null,
+          session_error: sessionError?.message || null,
+        });
         return jsonResponse({ error: "failed_to_create_stream_session" }, 500);
       }
 
@@ -142,6 +187,12 @@ Deno.serve(async (req) => {
           session_id: sessionId,
         }),
       );
+      await emit("info", "pay_stream_success", "legacy", "success", {
+        fallback_from_gateway: Boolean(fallbackFrom),
+        fallback_reason: fallbackFrom?.error || null,
+        session_id: sessionId,
+        tx_hash: txHash,
+      });
 
       return jsonResponse({
         success: true,
@@ -191,6 +242,10 @@ Deno.serve(async (req) => {
             ...failure,
           }),
         );
+        await emit("warn", "pay_stream_gateway_failed", "gateway", "error", {
+          gateway_status: failure.status,
+          gateway_error: failure.error,
+        });
         return failure;
       }
 
@@ -233,6 +288,11 @@ Deno.serve(async (req) => {
           session_id: stream.id,
         }),
       );
+      await emit("info", "pay_stream_success", "gateway", "success", {
+        fallback_from_gateway: false,
+        session_id: stream.id,
+        tx_hash: txHash,
+      });
 
       return jsonResponse({
         success: true,
@@ -254,6 +314,16 @@ Deno.serve(async (req) => {
       });
     };
 
+    if (effectiveMode === "auto" && !walletInCanary) {
+      await emit("info", "pay_stream_canary_bypass", "legacy", "success", {
+        reason: "wallet_not_in_canary",
+      });
+      return await createLegacySession({
+        status: 412,
+        error: "wallet_not_in_canary",
+      });
+    }
+
     if (effectiveMode === "legacy") {
       return await createLegacySession(null);
     }
@@ -263,6 +333,10 @@ Deno.serve(async (req) => {
       if (gatewayResult instanceof Response) {
         return gatewayResult;
       }
+      await emit("error", "pay_stream_gateway_mode_failed", "gateway", "error", {
+        gateway_status: gatewayResult.status,
+        gateway_error: gatewayResult.error,
+      });
       return jsonResponse(
         {
           error: "gateway_mode_payment_failed",

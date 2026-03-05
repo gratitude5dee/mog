@@ -5,6 +5,7 @@ import {
   walletProofCorsHeaders,
   WalletProofPayload,
 } from "../_shared/wallet-proof.ts";
+import { logOpsEvent } from "../_shared/ops-log.ts";
 
 const corsHeaders = {
   ...walletProofCorsHeaders,
@@ -47,7 +48,26 @@ serve(async (req) => {
   }
 
   try {
+    const startedAt = Date.now();
     const supabaseAdmin = getSupabaseAdminClient();
+    const emit = async (
+      level: "info" | "warn" | "error",
+      eventName: string,
+      outcome: string,
+      modeUsed: string | null = null,
+      metadata: Record<string, unknown> = {},
+    ) =>
+      await logOpsEvent(supabaseAdmin, {
+        component: "engagement-pay",
+        event_name: eventName,
+        level,
+        mode_used: modeUsed,
+        outcome,
+        metadata: {
+          latency_ms: Date.now() - startedAt,
+          ...metadata,
+        },
+      });
 
     const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
     const authHeader = req.headers.get("Authorization") || "";
@@ -61,24 +81,47 @@ serve(async (req) => {
     const walletProof = (payload?.wallet_proof || null) as WalletProofPayload | null;
 
     if (!contentType || !contentId || !actionType || !payerWallet) {
+      await emit("warn", "engagement_pay_validation_failed", "error", null, {
+        error: "missing_required_fields",
+      });
       return jsonResponse({ error: "missing_required_fields" }, 400);
     }
 
     if (!ALLOWED_CONTENT_TYPES.has(contentType)) {
+      await emit("warn", "engagement_pay_validation_failed", "error", null, {
+        error: "invalid_content_type",
+        content_type: contentType,
+      });
       return jsonResponse({ error: "invalid_content_type" }, 400);
     }
 
     if (!ALLOWED_ACTIONS.has(actionType)) {
+      await emit("warn", "engagement_pay_validation_failed", "error", null, {
+        error: "invalid_action_type",
+        action_type: actionType,
+      });
       return jsonResponse({ error: "invalid_action_type" }, 400);
     }
 
     if (!isInternalServiceCall) {
       const proofResult = await verifyAndConsumeWalletProof(supabaseAdmin, walletProof);
       if (!proofResult.ok) {
+        await emit("warn", "engagement_pay_wallet_proof_failed", "error", null, {
+          error: proofResult.error,
+          content_type: contentType,
+          action_type: actionType,
+          payer_wallet: payerWallet,
+        });
         return jsonResponse({ error: proofResult.error }, proofResult.status);
       }
 
       if (proofResult.address !== payerWallet) {
+        await emit("warn", "engagement_pay_wallet_proof_failed", "error", null, {
+          error: "wallet_proof_mismatch",
+          content_type: contentType,
+          action_type: actionType,
+          payer_wallet: payerWallet,
+        });
         return jsonResponse({ error: "wallet_proof_mismatch" }, 403);
       }
     }
@@ -95,6 +138,12 @@ serve(async (req) => {
     const dailyCap = configData?.daily_cap_per_user ?? 100;
 
     if (!isEnabled) {
+      await emit("info", "engagement_pay_skipped", "skipped", null, {
+        error: "payout_disabled",
+        content_type: contentType,
+        action_type: actionType,
+        payer_wallet: payerWallet,
+      });
       return jsonResponse({ error: "payout_disabled", skipped: true });
     }
 
@@ -123,16 +172,33 @@ serve(async (req) => {
       .single();
 
     if (contentError || !contentRow) {
+      await emit("warn", "engagement_pay_skipped", "error", null, {
+        error: "content_not_found",
+        content_type: contentType,
+        content_id: contentId,
+      });
       return jsonResponse({ error: "content_not_found" }, 404);
     }
 
-    const creatorWallet = String((contentRow as unknown as Record<string, unknown>)[sourceWalletField] || "").toLowerCase();
+    const creatorWallet = String((contentRow as Record<string, unknown>)[sourceWalletField] || "").toLowerCase();
 
     if (!creatorWallet) {
+      await emit("warn", "engagement_pay_skipped", "error", null, {
+        error: "creator_wallet_missing",
+        content_type: contentType,
+        content_id: contentId,
+      });
       return jsonResponse({ error: "creator_wallet_missing" }, 404);
     }
 
     if (creatorWallet === payerWallet) {
+      await emit("info", "engagement_pay_skipped", "skipped", null, {
+        error: "self_engagement_blocked",
+        content_type: contentType,
+        content_id: contentId,
+        action_type: actionType,
+        payer_wallet: payerWallet,
+      });
       return jsonResponse({ error: "self_engagement_blocked", skipped: true });
     }
 
@@ -147,6 +213,13 @@ serve(async (req) => {
       .maybeSingle();
 
     if (existingPayout) {
+      await emit("info", "engagement_pay_skipped", "skipped", null, {
+        error: "already_rewarded",
+        content_type: contentType,
+        content_id: contentId,
+        action_type: actionType,
+        payer_wallet: payerWallet,
+      });
       return jsonResponse({ error: "already_rewarded", skipped: true });
     }
 
@@ -161,6 +234,12 @@ serve(async (req) => {
       .gte("created_at", dayStart.toISOString());
 
     if ((payoutCountToday ?? 0) >= dailyCap) {
+      await emit("info", "engagement_pay_skipped", "skipped", null, {
+        error: "daily_cap_reached",
+        content_type: contentType,
+        action_type: actionType,
+        payer_wallet: payerWallet,
+      });
       return jsonResponse({ error: "daily_cap_reached", skipped: true });
     }
 
@@ -183,8 +262,26 @@ serve(async (req) => {
       .single();
 
     if (payoutError) {
+      await emit("error", "engagement_pay_failed", "error", null, {
+        error: "payout_insert_failed",
+        content_type: contentType,
+        content_id: contentId,
+        action_type: actionType,
+        payer_wallet: payerWallet,
+      });
       return jsonResponse({ error: "payout_insert_failed" }, 500);
     }
+
+    await emit("info", "engagement_pay_success", "success", null, {
+      payout_id: payoutRow.id,
+      content_type: contentType,
+      content_id: contentId,
+      action_type: actionType,
+      payer_wallet: payerWallet,
+      creator_wallet: creatorWallet,
+      amount: payoutAmount,
+      tx_hash: txHash,
+    });
 
     return jsonResponse({
       success: true,

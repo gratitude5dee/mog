@@ -8,7 +8,12 @@
     "build": "vite build",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "phase4:check:env": "node scripts/phase4/staging/check-env-matrix.mjs",
+    "phase4:deploy:staging": "bash scripts/phase4/staging/deploy-baseline.sh",
+    "phase4:gate:acceptance": "node scripts/phase4/staging/acceptance-gate.mjs",
+    "phase4:metrics:canary": "node scripts/phase4/staging/canary-metrics.mjs",
+    "phase4:readiness": "node scripts/phase4/staging/generate-go-no-go.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

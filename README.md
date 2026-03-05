@@ -544,6 +544,24 @@ Content-Type: application/json
 Supported `content_type` values: `track`, `video`, `article`, `mog_post`.
 Supported `action_type` values: `like`, `comment`, `bookmark`, `follow`, `report`.
 
+## 🧪 Phase 4 Staging Rollout Gates
+
+Phase 4 rollout automation and validation tooling lives in:
+
+`scripts/phase4/staging`
+
+Quick commands:
+
+```bash
+npm run phase4:check:env
+SUPABASE_TARGET_ENV=staging npm run phase4:deploy:staging
+npm run phase4:gate:acceptance
+npm run phase4:metrics:canary
+npm run phase4:readiness
+```
+
+The scripts produce artifacts under `memory/` for acceptance, canary, and go/no-go evidence.
+
 ---
 
 ## 🛣️ Roadmap
