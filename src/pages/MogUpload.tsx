@@ -152,7 +152,7 @@ export default function MogUpload() {
         throw new Error(`${contentType === "video" ? "Video" : "Image"} exceeds ${rule.sizeLabel} limit`);
       }
 
-      if (contentType === "video" && rule.maxDurationSeconds) {
+      if (contentType === "video" && 'maxDurationSeconds' in rule) {
         const duration = await getVideoDurationSeconds(file);
         if (duration > rule.maxDurationSeconds) {
           throw new Error(`Video is too long (${Math.ceil(duration)}s). Max allowed is ${rule.maxDurationSeconds}s`);

@@ -33,28 +33,28 @@ function jsonResponse(body: unknown, status = 200) {
 }
 
 async function resolveCreatorWallet(
-  supabaseAdmin: ReturnType<typeof createClient>,
+  supabaseAdmin: any,
   contentType: ContentType,
   contentId: string,
 ): Promise<string | null> {
   if (contentType === "mog_post") {
     const { data } = await supabaseAdmin.from("mog_posts").select("creator_wallet").eq("id", contentId).maybeSingle();
-    return (data?.creator_wallet as string | null)?.toLowerCase() || null;
+    return ((data as any)?.creator_wallet as string | null)?.toLowerCase() || null;
   }
 
   if (contentType === "track") {
     const { data } = await supabaseAdmin.from("music_tracks").select("artist_wallet").eq("id", contentId).maybeSingle();
-    return (data?.artist_wallet as string | null)?.toLowerCase() || null;
+    return ((data as any)?.artist_wallet as string | null)?.toLowerCase() || null;
   }
 
   if (contentType === "video") {
     const { data } = await supabaseAdmin.from("music_videos").select("artist_wallet").eq("id", contentId).maybeSingle();
-    return (data?.artist_wallet as string | null)?.toLowerCase() || null;
+    return ((data as any)?.artist_wallet as string | null)?.toLowerCase() || null;
   }
 
   if (contentType === "article") {
     const { data } = await supabaseAdmin.from("articles").select("author_wallet").eq("id", contentId).maybeSingle();
-    return (data?.author_wallet as string | null)?.toLowerCase() || null;
+    return ((data as any)?.author_wallet as string | null)?.toLowerCase() || null;
   }
 
   return null;

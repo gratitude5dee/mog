@@ -29,7 +29,7 @@ function getMoltbookMode(): "development" | "production" {
 
 function isMockEnabled(): boolean {
   const explicit = Deno.env.get("MOLTBOOK_ALLOW_MOCK");
-  if (explicit !== null) {
+  if (explicit !== undefined) {
     return explicit.toLowerCase() === "true";
   }
   return getMoltbookMode() === "development";

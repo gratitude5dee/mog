@@ -3525,7 +3525,7 @@ export type Database = {
       }
       mog_agent_profiles: {
         Row: {
-          api_key: string
+          api_key_hash: string | null
           avatar_url: string | null
           created_at: string | null
           description: string | null
@@ -3543,7 +3543,7 @@ export type Database = {
           wallet_address: string
         }
         Insert: {
-          api_key?: string
+          api_key_hash?: string | null
           avatar_url?: string | null
           created_at?: string | null
           description?: string | null
@@ -3561,7 +3561,7 @@ export type Database = {
           wallet_address: string
         }
         Update: {
-          api_key?: string
+          api_key_hash?: string | null
           avatar_url?: string | null
           created_at?: string | null
           description?: string | null
