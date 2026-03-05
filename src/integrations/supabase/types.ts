@@ -2554,6 +2554,74 @@ export type Database = {
         }
         Relationships: []
       }
+      export_jobs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          fallback_used: boolean | null
+          id: string
+          output_url: string | null
+          progress: number | null
+          project_id: string
+          provider: string | null
+          provider_job_id: string | null
+          provider_payload: Json | null
+          provider_status: string | null
+          settings: Json | null
+          started_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          fallback_used?: boolean | null
+          id?: string
+          output_url?: string | null
+          progress?: number | null
+          project_id: string
+          provider?: string | null
+          provider_job_id?: string | null
+          provider_payload?: Json | null
+          provider_status?: string | null
+          settings?: Json | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          fallback_used?: boolean | null
+          id?: string
+          output_url?: string | null
+          progress?: number | null
+          project_id?: string
+          provider?: string | null
+          provider_job_id?: string | null
+          provider_payload?: Json | null
+          provider_status?: string | null
+          settings?: Json | null
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "export_jobs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       falai_job_updates: {
         Row: {
           created_at: string | null
@@ -2630,6 +2698,59 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "falai_jobs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      final_project_assets: {
+        Row: {
+          asset_type: string
+          created_at: string
+          duration_ms: number | null
+          file_size: number | null
+          file_url: string | null
+          id: string
+          metadata: Json | null
+          project_id: string
+          storage_bucket: string | null
+          storage_path: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          asset_type?: string
+          created_at?: string
+          duration_ms?: number | null
+          file_size?: number | null
+          file_url?: string | null
+          id?: string
+          metadata?: Json | null
+          project_id: string
+          storage_bucket?: string | null
+          storage_path?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          asset_type?: string
+          created_at?: string
+          duration_ms?: number | null
+          file_size?: number | null
+          file_url?: string | null
+          id?: string
+          metadata?: Json | null
+          project_id?: string
+          storage_bucket?: string | null
+          storage_path?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "final_project_assets_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
@@ -7155,6 +7276,59 @@ export type Database = {
             columns: ["booking_id"]
             isOneToOne: false
             referencedRelation: "venue_bookings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      timeline_assets: {
+        Row: {
+          asset_type: string
+          created_at: string
+          duration_ms: number | null
+          id: string
+          metadata: Json | null
+          position_order: number
+          project_id: string
+          scene_id: string | null
+          shot_id: string | null
+          source_url: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          asset_type?: string
+          created_at?: string
+          duration_ms?: number | null
+          id?: string
+          metadata?: Json | null
+          position_order?: number
+          project_id: string
+          scene_id?: string | null
+          shot_id?: string | null
+          source_url?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          asset_type?: string
+          created_at?: string
+          duration_ms?: number | null
+          id?: string
+          metadata?: Json | null
+          position_order?: number
+          project_id?: string
+          scene_id?: string | null
+          shot_id?: string | null
+          source_url?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "timeline_assets_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
