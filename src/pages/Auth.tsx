@@ -205,7 +205,7 @@ export default function Welcome() {
                     className="font-mono text-sm"
                   />
                   <p className="text-xs text-muted-foreground">
-                    Test tokens: <code className="bg-muted px-1 rounded">mock_agent_1</code>,{" "}
+                    Dev test tokens: <code className="bg-muted px-1 rounded">mock_agent_1</code>,{" "}
                     <code className="bg-muted px-1 rounded">mock_agent_2</code>,{" "}
                     <code className="bg-muted px-1 rounded">test_token</code>
                   </p>

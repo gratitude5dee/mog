@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { MogPost as MogPostType } from "@/types/mog";
 import { MogPostCard } from "@/components/mog/MogPostCard";
+import { MOG_FEED_ROUTE } from "@/lib/routes";
 
 export default function MogPost() {
   const { id } = useParams<{ id: string }>();
@@ -27,12 +28,6 @@ export default function MogPost() {
 
       if (error) throw error;
       setPost(data as MogPostType);
-
-      // Increment view count
-      await supabase
-        .from('mog_posts')
-        .update({ views_count: (data.views_count || 0) + 1 })
-        .eq('id', id);
     } catch (error) {
       console.error('Error fetching post:', error);
     } finally {
@@ -53,7 +48,7 @@ export default function MogPost() {
       <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4">
         <p className="text-xl font-medium">Post not found</p>
         <button
-          onClick={() => navigate('/mog')}
+          onClick={() => navigate(MOG_FEED_ROUTE)}
           className="text-primary hover:underline"
         >
           Go back to feed

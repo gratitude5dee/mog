@@ -5,3 +5,4 @@
 - OC-20260201-0006: WZRD.STUDIO — Studio page testing + model integration (status: active)
 - OC-20260203-0001: Openwork ClawX Swarm — onboarding + high-value task execution (status: active)
 - OC-20260203-0002: Mog Repo PRD — feature request list for Codex (status: active)
+- OC-20260305-0001: Mog Stabilization + Hybrid x402 + Moltbook Autonomy (status: active)

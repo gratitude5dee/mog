@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useWallet } from "@/contexts/WalletContext";
-import { toast } from "sonner";
+import { requestWalletProof } from "@/lib/walletProof";
 
 const VIEW_THRESHOLD_MS = 5000; // 5 seconds to count as a view
 
@@ -47,12 +47,23 @@ export function useMogViewPayout({ postId, creatorWallet, isActive }: UseMogView
       hasTriggeredRef.current = true;
 
       try {
+        await supabase.functions.invoke('content-interact', {
+          body: {
+            action_type: 'view',
+            content_type: 'mog_post',
+            content_id: postId,
+          },
+          headers: { 'x-wallet-address': address.toLowerCase() },
+        });
+
+        const walletProof = await requestWalletProof(address.toLowerCase(), "engagement_pay:mog_post:view");
         const { data, error } = await supabase.functions.invoke('engagement-pay', {
           body: {
             content_type: 'mog_post',
             content_id: postId,
             action_type: 'view',
-            payer_wallet: address,
+            payer_wallet: address.toLowerCase(),
+            wallet_proof: walletProof,
           },
         });
 
@@ -61,12 +72,6 @@ export function useMogViewPayout({ postId, creatorWallet, isActive }: UseMogView
           return;
         }
 
-        if (data?.success && !data?.skipped) {
-          toast.success(`👁️ Viewed! Creator earned ${data.amount} $5DEE`, {
-            description: `TX: ${data.tx_hash?.slice(0, 10)}...`,
-            duration: 3000,
-          });
-        }
       } catch (err) {
         console.error('View payout failed:', err);
       }

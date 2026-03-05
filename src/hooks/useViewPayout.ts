@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useWallet } from "@/contexts/WalletContext";
 import { ContentType } from "@/types/engagement";
+import { requestWalletProof } from "@/lib/walletProof";
 
 const VIEW_THRESHOLD_MS = 5000; // 5 seconds minimum view time
 
@@ -25,12 +26,23 @@ export function useViewPayout(contentType: ContentType, contentId: string) {
       hasTrackedRef.current = true;
 
       try {
+        await supabase.functions.invoke('content-interact', {
+          body: {
+            action_type: 'view',
+            content_type: contentRef.current.contentType,
+            content_id: contentRef.current.contentId,
+          },
+          headers: { 'x-wallet-address': address.toLowerCase() }
+        });
+
+        const walletProof = await requestWalletProof(address.toLowerCase(), `engagement_pay:${contentRef.current.contentType}:view`);
         const response = await supabase.functions.invoke('engagement-pay', {
           body: {
             content_type: contentRef.current.contentType,
             content_id: contentRef.current.contentId,
             action_type: 'view',
-            payer_wallet: address.toLowerCase()
+            payer_wallet: address.toLowerCase(),
+            wallet_proof: walletProof,
           }
         });
 

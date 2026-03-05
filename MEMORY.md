@@ -12,3 +12,4 @@ Maintain long-term continuity for project management: review project-management-
 - 2026-02-01: Started project OC-20260201-0006 (WZRD.STUDIO Studio Optimization). See LOG_CHARTERS.md#oc-20260201-0006-—-wzrdstudio-studio-optimization and LOG_ACTIVITY.md entry 2026-02-01 19:03 PST.
 - 2026-02-03: Started project OC-20260203-0001 (Openwork ClawX Swarm). See LOG_CHARTERS.md#oc-20260203-0001-—-openwork-clawx-swarm and LOG_ACTIVITY.md entry 2026-02-03 00:27 PST.
 - 2026-02-03: Started project OC-20260203-0002 (Mog Repo PRD). See LOG_CHARTERS.md#oc-20260203-0002-—-mog-repo-prd-feature-request-list-for-codex and LOG_ACTIVITY.md entry 2026-02-03 01:36 PST.
+- 2026-03-05: Started project OC-20260305-0001 (Mog Stabilization + Hybrid x402 + Moltbook Autonomy). See LOG_CHARTERS.md and LOG_ACTIVITY.md entries 2026-03-05 01:48 PST; conflict/gating note in LOG_CONFLICTS.md.

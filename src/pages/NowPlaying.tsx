@@ -23,10 +23,12 @@ import { useWallet } from "@/contexts/WalletContext";
 import { postTrackEvent } from "@/lib/transactions";
 import { useToast } from "@/hooks/use-toast";
 import { BuyWidget } from "@/components/BuyWidget";
+import { supabase } from "@/integrations/supabase/client";
 import { ShareSheet } from "@/components/ShareSheet";
 import { TrackOptionsSheet } from "@/components/TrackOptionsSheet";
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
+import { x402Mode } from "@/lib/featureFlags";
 
 export default function NowPlaying() {
   const navigate = useNavigate();
@@ -68,15 +70,23 @@ export default function NowPlaying() {
       if (!currentTrack || !address || !isLocked) return;
 
       try {
-        const gatewayUrl = import.meta.env.VITE_X402_GATEWAY_URL || "http://localhost:4020";
-        const res = await fetch(
-          `${gatewayUrl}/api/session/active?trackId=${currentTrack.id}&walletAddress=${address}`
-        );
+        const { data, error } = await supabase.functions.invoke("stream-session-active", {
+          body: {
+            track_id: currentTrack.id,
+            payer_wallet: address.toLowerCase(),
+            mode_preference: x402Mode,
+          },
+        });
 
-        if (!res.ok) return;
+        if (error || !data?.success || !data?.stream) {
+          console.info("[NowPlaying] session restore miss", {
+            mode_preference: x402Mode,
+            error: error?.message || data?.error || null,
+          });
+          return;
+        }
 
-        const data = await res.json();
-        if (data?.success && data?.stream) {
+        if (data?.stream) {
           setActiveSession({
             id: data.stream.id,
             stream_id: data.stream.stream_id,
@@ -86,7 +96,11 @@ export default function NowPlaying() {
           });
           toast({
             title: "Session restored",
-            description: "Your stream is still active.",
+            description: `Restored from ${data.restore_source || data.mode_used || "session store"}.`,
+          });
+          console.info("[NowPlaying] session restore success", {
+            mode_used: data.mode_used,
+            restore_source: data.restore_source,
           });
         }
       } catch (error) {
@@ -95,7 +109,7 @@ export default function NowPlaying() {
     };
 
     restoreSession();
-  }, [currentTrack, address, isLocked, setActiveSession]);
+  }, [currentTrack, address, isLocked, setActiveSession, toast, x402Mode]);
 
   // Session timer
   useEffect(() => {

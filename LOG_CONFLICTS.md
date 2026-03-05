@@ -4,3 +4,4 @@
 - 2026-02-01 15:58 PST [OC-20260201-0005] Severity: warn — Target loss 30–50 lb in 8 weeks is aggressive. Constraint: plan must prioritize safety; adjust targets if adverse symptoms or plateau.
 - 2026-02-01 16:10 PST [OC-20260201-0004] Severity: info — User confirmed compliant, non‑manipulative growth only.
 - 2026-02-01 16:10 PST [OC-20260201-0005] Severity: info — User accepted safety guardrails for aggressive weight‑loss plan.
+- 2026-03-05 01:48 PST [OC-20260305-0001] Severity: warn — Multi-epic request (feed + upload + x402 + Moltbook + payouts) risks destabilizing rollout; mitigated via staged gates and explicit no-lockfile/no-build-plumbing edits.

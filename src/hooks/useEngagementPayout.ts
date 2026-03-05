@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useWallet } from "@/contexts/WalletContext";
 import { ContentType } from "@/types/engagement";
 import { PayoutActionType } from "@/lib/fiveDeeToken";
+import { requestWalletProof } from "@/lib/walletProof";
 
 interface UseEngagementPayoutOptions {
   contentType: ContentType;
@@ -16,12 +17,14 @@ export function useEngagementPayout({ contentType, contentId }: UseEngagementPay
     if (!address || !contentId) return null;
 
     try {
+      const walletProof = await requestWalletProof(address, `engagement_pay:${contentType}:${actionType}`);
       const response = await supabase.functions.invoke('engagement-pay', {
         body: {
           content_type: contentType,
           content_id: contentId,
           action_type: actionType,
-          payer_wallet: address.toLowerCase()
+          payer_wallet: address.toLowerCase(),
+          wallet_proof: walletProof,
         }
       });
 

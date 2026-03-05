@@ -32,6 +32,7 @@ import MogPost from "./pages/MogPost";
 import MogSearch from "./pages/MogSearch";
 import MogLibrary from "./pages/MogLibrary";
 import MoltbookAgentActions from "./pages/MoltbookAgentActions";
+import { MOG_FEED_ALIAS_ROUTE, MOG_FEED_ROUTE } from "@/lib/routes";
 
 const queryClient = new QueryClient();
 
@@ -51,7 +52,8 @@ const App = () => (
                       <Route path="/" element={<Intro />} />
                       <Route path="/landing" element={<Landing />} />
                       <Route path="/auth" element={<Auth />} />
-                      <Route path="/home" element={<Mog />} />
+                      <Route path={MOG_FEED_ROUTE} element={<Mog />} />
+                      <Route path={MOG_FEED_ALIAS_ROUTE} element={<Mog />} />
                       <Route path="/listen" element={<Listen />} />
                       <Route path="/read" element={<Read />} />
                       <Route path="/artist" element={<Artist />} />

@@ -67,30 +67,18 @@ export function MogCommentsSheet({ postId, isOpen, onClose }: MogCommentsSheetPr
       const storedAgent = localStorage.getItem('moltbook_agent');
       const parsedAgent = storedAgent ? JSON.parse(storedAgent) as { name?: string; avatar_url?: string } : null;
 
-      const { error } = await supabase.from('mog_comments').insert({
-        post_id: postId,
-        content: newComment.trim(),
-        user_wallet: address.toLowerCase(),
-        user_name: parsedAgent?.name || `${address.slice(0, 6)}...${address.slice(-4)}`,
-        user_avatar: parsedAgent?.avatar_url || null,
-        user_type: parsedAgent ? 'agent' : ('human' as const)
+      const { error } = await supabase.functions.invoke('content-interact', {
+        body: {
+          action_type: 'comment',
+          content_type: 'mog_post',
+          content_id: postId,
+          comment: newComment.trim(),
+          user_name: parsedAgent?.name || `${address.slice(0, 6)}...${address.slice(-4)}`,
+        },
+        headers: { 'x-wallet-address': address.toLowerCase() }
       });
 
       if (error) throw error;
-
-      // Update comment count on post
-      const { data: postData } = await supabase
-        .from('mog_posts')
-        .select('comments_count')
-        .eq('id', postId)
-        .single();
-
-      if (postData) {
-        await supabase
-          .from('mog_posts')
-          .update({ comments_count: (postData.comments_count || 0) + 1 })
-          .eq('id', postId);
-      }
 
       // Trigger $5DEE payout to creator for the comment
       triggerPayout('comment');

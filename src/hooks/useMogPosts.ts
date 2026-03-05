@@ -1,90 +1,75 @@
-import { useInfiniteQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { MogPost, FeedType } from "@/types/mog";
+import { FeedType, MogPost } from "@/types/mog";
 
-interface FetchMogPostsParams {
-  offset: number;
-  limit: number;
-  feedType: FeedType;
-  address?: string;
-}
-
-async function fetchMogPosts({ offset, limit, feedType, address }: FetchMogPostsParams): Promise<MogPost[]> {
-  if (feedType === 'following' && address) {
-    // Get following list first
-    const { data: following } = await supabase
-      .from('mog_follows')
-      .select('following_wallet')
-      .eq('follower_wallet', address.toLowerCase());
-
-    if (!following || following.length === 0) {
-      return [];
-    }
-
-    const followingWallets = following.map(f => f.following_wallet);
-    const { data, error } = await supabase
-      .from('mog_posts')
-      .select('*')
-      .eq('is_published', true)
-      .in('creator_wallet', followingWallets)
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
-
-    if (error) throw error;
-    return (data as MogPost[]) || [];
-  }
-
-  const { data, error } = await supabase
-    .from('mog_posts')
-    .select('*')
-    .eq('is_published', true)
-    .order('created_at', { ascending: false })
-    .range(offset, offset + limit - 1);
-
-  if (error) throw error;
-  return (data as MogPost[]) || [];
-}
+type MogFeedResponse = {
+  success: boolean;
+  items: MogPost[];
+  next_cursor: string | null;
+  has_more: boolean;
+  error?: string;
+};
 
 const PAGE_SIZE = 20;
 
-export function useMogPosts(feedType: FeedType, address?: string) {
-  const queryClient = useQueryClient();
-
-  const query = useInfiniteQuery({
-    queryKey: ['mog-posts', feedType, address],
-    queryFn: ({ pageParam = 0 }) => 
-      fetchMogPosts({ 
-        offset: pageParam, 
-        limit: PAGE_SIZE, 
-        feedType, 
-        address 
-      }),
-    getNextPageParam: (lastPage, allPages) => {
-      if (lastPage.length < PAGE_SIZE) return undefined;
-      return allPages.length * PAGE_SIZE;
+async function fetchMogPosts(
+  feedType: FeedType,
+  address?: string,
+  cursor: string | null = null,
+): Promise<MogFeedResponse> {
+  const { data, error } = await supabase.functions.invoke("mog-feed", {
+    body: {
+      feed_type: feedType,
+      wallet: address?.toLowerCase(),
+      cursor,
+      limit: PAGE_SIZE,
+      sort: "new",
     },
-    initialPageParam: 0,
-    staleTime: 30000, // 30 seconds
+  });
+
+  if (error) {
+    throw new Error(error.message || "Failed to load feed");
+  }
+
+  if (!data?.success) {
+    throw new Error(data?.error || "Failed to load feed");
+  }
+
+  return {
+    success: true,
+    items: (data.items || []) as MogPost[],
+    next_cursor: data.next_cursor || null,
+    has_more: Boolean(data.has_more),
+  };
+}
+
+export function useMogPosts(feedType: FeedType, address?: string) {
+  const query = useInfiniteQuery({
+    queryKey: ["mog-posts", feedType, address],
+    queryFn: ({ pageParam }) => fetchMogPosts(feedType, address, pageParam as string | null),
+    initialPageParam: null,
+    getNextPageParam: (lastPage) => (lastPage.has_more ? lastPage.next_cursor : undefined),
+    staleTime: 30_000,
     refetchOnWindowFocus: false,
   });
 
-  // Flatten all pages into a single array
-  const posts = query.data?.pages.flat() ?? [];
-
-  // Prefetch next page when we're close to the end
-  const prefetchNextPage = () => {
-    if (query.hasNextPage && !query.isFetchingNextPage) {
-      query.fetchNextPage();
-    }
-  };
+  const seen = new Set<string>();
+  const posts = (query.data?.pages || [])
+    .flatMap((page) => page.items)
+    .filter((post) => {
+      if (seen.has(post.id)) return false;
+      seen.add(post.id);
+      return true;
+    });
 
   return {
     posts,
     isLoading: query.isLoading,
+    isError: query.isError,
+    error: query.error,
     isFetchingNextPage: query.isFetchingNextPage,
     hasNextPage: query.hasNextPage,
     fetchNextPage: query.fetchNextPage,
-    prefetchNextPage,
     refetch: query.refetch,
   };
 }

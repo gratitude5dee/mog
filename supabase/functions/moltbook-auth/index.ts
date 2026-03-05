@@ -16,6 +16,7 @@ serve(async (req) => {
   if (!verification.ok) {
     return new Response(
       JSON.stringify({
+        success: false,
         valid: false,
         error: verification.error,
       }),
@@ -31,6 +32,7 @@ serve(async (req) => {
 
   return new Response(
     JSON.stringify({
+      success: true,
       valid: true,
       agent: verification.agent,
     }),

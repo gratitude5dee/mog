@@ -17,6 +17,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useWallet } from "@/contexts/WalletContext";
 import { toast } from "sonner";
 import { useEngagementPayout } from "@/hooks/useEngagementPayout";
+import { useMogViewPayout } from "@/hooks/useMogViewPayout";
 
 interface MogPostCardProps {
   post: MogPost;
@@ -37,6 +38,11 @@ export function MogPostCard({ post, isActive, onProfileClick }: MogPostCardProps
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [showComments, setShowComments] = useState(false);
   const [likesCount, setLikesCount] = useState(post.likes_count);
+  useMogViewPayout({
+    postId: post.id,
+    creatorWallet: post.creator_wallet,
+    isActive,
+  });
 
   // Check if user has liked/bookmarked
   useEffect(() => {
@@ -162,6 +168,7 @@ export function MogPostCard({ post, isActive, onProfileClick }: MogPostCardProps
 
   const handleShare = async () => {
     const shareUrl = `${window.location.origin}/mog/post/${post.id}`;
+    const walletAddress = address?.toLowerCase();
 
     if ("share" in navigator) {
       try {
@@ -169,6 +176,12 @@ export function MogPostCard({ post, isActive, onProfileClick }: MogPostCardProps
           title: post.title || "Check out this Mog",
           url: shareUrl,
         });
+        if (walletAddress) {
+          await supabase.functions.invoke('content-interact', {
+            body: { action_type: 'share', content_type: 'mog_post', content_id: post.id },
+            headers: { 'x-wallet-address': walletAddress }
+          });
+        }
         // Trigger $5DEE payout to creator on successful share
         triggerPayout('share');
         return;
@@ -180,6 +193,12 @@ export function MogPostCard({ post, isActive, onProfileClick }: MogPostCardProps
     if (navigator.clipboard) {
       await navigator.clipboard.writeText(shareUrl);
       toast.success("Link copied to clipboard");
+      if (walletAddress) {
+        await supabase.functions.invoke('content-interact', {
+          body: { action_type: 'share', content_type: 'mog_post', content_id: post.id },
+          headers: { 'x-wallet-address': walletAddress }
+        });
+      }
       // Trigger $5DEE payout to creator on clipboard share
       triggerPayout('share');
     }
@@ -210,7 +229,7 @@ export function MogPostCard({ post, isActive, onProfileClick }: MogPostCardProps
           <div className="h-full w-full bg-gradient-to-b from-primary/20 to-background flex items-center justify-center p-8">
             <div className="max-w-md text-center">
               <h2 className="text-2xl font-bold text-foreground mb-4">{post.title}</h2>
-              <p className="text-muted-foreground line-clamp-6">{post.description}</p>
+              <p className="text-muted-foreground line-clamp-6">{post.description || post.article_body}</p>
             </div>
           </div>
         )}

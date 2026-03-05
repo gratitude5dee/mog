@@ -67,7 +67,7 @@ export function ContentCommentsSheet({
 
     setSubmitting(true);
     try {
-      const { data: result, error } = await supabase.functions.invoke('content-interact', {
+      const { error } = await supabase.functions.invoke('content-interact', {
         body: {
           action_type: 'comment',
           content_type: contentType,
@@ -79,24 +79,6 @@ export function ContentCommentsSheet({
       });
 
       if (error) throw error;
-
-      // Update comment count on source table
-      const tableName = contentType === 'track' ? 'music_tracks' 
-        : contentType === 'video' ? 'music_videos' 
-        : 'articles';
-      
-      const { data: contentData } = await supabase
-        .from(tableName)
-        .select('comments_count')
-        .eq('id', contentId)
-        .single();
-
-      if (contentData) {
-        await supabase
-          .from(tableName)
-          .update({ comments_count: (contentData.comments_count || 0) + 1 })
-          .eq('id', contentId);
-      }
 
       setNewComment('');
       fetchComments();

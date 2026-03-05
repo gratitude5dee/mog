@@ -1,12 +1,15 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import {
+  getSupabaseAdminClient,
+  verifyAndConsumeWalletProof,
+  walletProofCorsHeaders,
+  WalletProofPayload,
+} from "../_shared/wallet-proof.ts";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  ...walletProofCorsHeaders,
 };
 
-// Payout rates in $5DEE tokens
 const PAYOUT_RATES: Record<string, number> = {
   view: 1,
   like: 5,
@@ -15,238 +18,184 @@ const PAYOUT_RATES: Record<string, number> = {
   bookmark: 2,
 };
 
-const FIVE_DEE_CONTRACT = "0x954fA8cfb797a26D4878ee212004889a2C9D7624";
+const ALLOWED_CONTENT_TYPES = new Set(["track", "video", "article", "mog_post"]);
+const ALLOWED_ACTIONS = new Set(Object.keys(PAYOUT_RATES));
 
 function generateMockTxHash(): string {
-  const chars = '0123456789abcdef';
-  let hash = '0x';
+  const chars = "0123456789abcdef";
+  let hash = "0x";
   for (let i = 0; i < 64; i++) {
     hash += chars[Math.floor(Math.random() * chars.length)];
   }
   return hash;
 }
 
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
+  if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
+  if (req.method !== "POST") {
+    return jsonResponse({ error: "method_not_allowed" }, 405);
+  }
+
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    const supabaseAdmin = getSupabaseAdminClient();
 
-    // --- JWT Authentication ---
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+    const authHeader = req.headers.get("Authorization") || "";
+    const isInternalServiceCall = authHeader === `Bearer ${serviceRoleKey}`;
+
+    const payload = await req.json();
+    const contentType = String(payload?.content_type || "");
+    const contentId = String(payload?.content_id || "");
+    const actionType = String(payload?.action_type || "");
+    const payerWallet = String(payload?.payer_wallet || "").toLowerCase();
+    const walletProof = (payload?.wallet_proof || null) as WalletProofPayload | null;
+
+    if (!contentType || !contentId || !actionType || !payerWallet) {
+      return jsonResponse({ error: "missing_required_fields" }, 400);
     }
 
-    const token = authHeader.replace('Bearer ', '');
-    const authClient = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } }
-    });
-
-    const { data: claimsData, error: claimsError } = await authClient.auth.getUser(token);
-    if (claimsError || !claimsData?.user) {
-      console.error('Auth failed:', claimsError?.message);
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    if (!ALLOWED_CONTENT_TYPES.has(contentType)) {
+      return jsonResponse({ error: "invalid_content_type" }, 400);
     }
 
-    const userId = claimsData.user.id;
-    // --- End Authentication ---
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    const { content_type, content_id, action_type, payer_wallet } = await req.json();
-
-    if (!content_type || !content_id || !action_type || !payer_wallet) {
-      return new Response(
-        JSON.stringify({ error: 'Missing required fields' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    if (!ALLOWED_ACTIONS.has(actionType)) {
+      return jsonResponse({ error: "invalid_action_type" }, 400);
     }
 
-    if (!PAYOUT_RATES[action_type]) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid action type' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    if (!isInternalServiceCall) {
+      const proofResult = await verifyAndConsumeWalletProof(supabaseAdmin, walletProof);
+      if (!proofResult.ok) {
+        return jsonResponse({ error: proofResult.error }, proofResult.status);
+      }
+
+      if (proofResult.address !== payerWallet) {
+        return jsonResponse({ error: "wallet_proof_mismatch" }, 403);
+      }
     }
 
-    // Verify the payer_wallet belongs to the authenticated user
-    const { data: walletUser } = await supabase
-      .from('wallet_users')
-      .select('wallet_address')
-      .eq('user_id', userId)
+    // Payout configuration
+    const { data: configData } = await supabaseAdmin
+      .from("token_config")
+      .select("payout_amount, is_enabled, daily_cap_per_user")
+      .eq("action_type", actionType)
       .maybeSingle();
 
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('wallet_address')
-      .eq('id', userId)
-      .maybeSingle();
-
-    const userWallet = walletUser?.wallet_address || profile?.wallet_address;
-    if (!userWallet || userWallet.toLowerCase() !== payer_wallet.toLowerCase()) {
-      console.error('Wallet mismatch: authenticated user wallet does not match payer_wallet');
-      return new Response(
-        JSON.stringify({ error: 'Wallet address does not match authenticated user' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Get payout config
-    const { data: configData } = await supabase
-      .from('token_config')
-      .select('payout_amount, is_enabled, daily_cap_per_user')
-      .eq('action_type', action_type)
-      .single();
-
-    const payoutAmount = configData?.payout_amount ?? PAYOUT_RATES[action_type];
+    const payoutAmount = configData?.payout_amount ?? PAYOUT_RATES[actionType];
     const isEnabled = configData?.is_enabled ?? true;
     const dailyCap = configData?.daily_cap_per_user ?? 100;
 
     if (!isEnabled) {
-      return new Response(
-        JSON.stringify({ error: 'Payouts disabled for this action type' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse({ error: "payout_disabled", skipped: true });
     }
 
-    // Get creator wallet from content
-    let tableName: string;
-    let walletField: string;
-    
-    if (content_type === 'track') {
-      tableName = 'music_tracks';
-      walletField = 'artist_wallet';
-    } else if (content_type === 'video') {
-      tableName = 'music_videos';
-      walletField = 'artist_wallet';
-    } else if (content_type === 'mog_post') {
-      tableName = 'mog_posts';
-      walletField = 'creator_wallet';
+    // Resolve creator wallet by content type
+    let sourceTable = "";
+    let sourceWalletField = "";
+
+    if (contentType === "track") {
+      sourceTable = "music_tracks";
+      sourceWalletField = "artist_wallet";
+    } else if (contentType === "video") {
+      sourceTable = "music_videos";
+      sourceWalletField = "artist_wallet";
+    } else if (contentType === "mog_post") {
+      sourceTable = "mog_posts";
+      sourceWalletField = "creator_wallet";
     } else {
-      tableName = 'articles';
-      walletField = 'author_wallet';
+      sourceTable = "articles";
+      sourceWalletField = "author_wallet";
     }
-    
-    const { data: content, error: contentError } = await supabase
-      .from(tableName)
-      .select(`id, ${walletField}`)
-      .eq('id', content_id)
+
+    const { data: contentRow, error: contentError } = await supabaseAdmin
+      .from(sourceTable)
+      .select(`id, ${sourceWalletField}`)
+      .eq("id", contentId)
       .single();
 
-    if (contentError || !content) {
-      console.error('Content not found:', contentError);
-      return new Response(
-        JSON.stringify({ error: 'Content not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    if (contentError || !contentRow) {
+      return jsonResponse({ error: "content_not_found" }, 404);
     }
 
-    const creatorWallet = (content as any)[walletField];
-    
+    const creatorWallet = String((contentRow as Record<string, unknown>)[sourceWalletField] || "").toLowerCase();
+
     if (!creatorWallet) {
-      return new Response(
-        JSON.stringify({ error: 'Creator wallet not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse({ error: "creator_wallet_missing" }, 404);
     }
 
-    // Anti-abuse: no self-pay
-    if (payer_wallet.toLowerCase() === creatorWallet.toLowerCase()) {
-      return new Response(
-        JSON.stringify({ error: 'Cannot earn from own content', skipped: true }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Rate limiting: daily cap
-    const today = new Date().toISOString().split('T')[0];
-    const { count: dailyCount } = await supabase
-      .from('engagement_payouts')
-      .select('*', { count: 'exact', head: true })
-      .eq('payer_wallet', payer_wallet.toLowerCase())
-      .gte('created_at', `${today}T00:00:00Z`);
-
-    if ((dailyCount ?? 0) >= dailyCap) {
-      return new Response(
-        JSON.stringify({ error: 'Daily payout limit reached', skipped: true }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    if (creatorWallet === payerWallet) {
+      return jsonResponse({ error: "self_engagement_blocked", skipped: true });
     }
 
     // Duplicate check
-    const { data: existingPayout } = await supabase
-      .from('engagement_payouts')
-      .select('id')
-      .eq('content_type', content_type)
-      .eq('content_id', content_id)
-      .eq('action_type', action_type)
-      .eq('payer_wallet', payer_wallet.toLowerCase())
+    const { data: existingPayout } = await supabaseAdmin
+      .from("engagement_payouts")
+      .select("id")
+      .eq("content_type", contentType)
+      .eq("content_id", contentId)
+      .eq("action_type", actionType)
+      .eq("payer_wallet", payerWallet)
       .maybeSingle();
 
     if (existingPayout) {
-      return new Response(
-        JSON.stringify({ error: 'Already rewarded for this action', skipped: true }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse({ error: "already_rewarded", skipped: true });
     }
 
-    // Simulation mode
-    const mockTxHash = generateMockTxHash();
-    
-    console.log(`[SIMULATION] Payout: ${action_type} ${payoutAmount} $5DEE | ${payer_wallet} -> ${creatorWallet} | user: ${userId}`);
+    // Daily cap per payer
+    const dayStart = new Date();
+    dayStart.setUTCHours(0, 0, 0, 0);
 
-    const { data: payout, error: payoutError } = await supabase
-      .from('engagement_payouts')
+    const { count: payoutCountToday } = await supabaseAdmin
+      .from("engagement_payouts")
+      .select("id", { count: "exact", head: true })
+      .eq("payer_wallet", payerWallet)
+      .gte("created_at", dayStart.toISOString());
+
+    if ((payoutCountToday ?? 0) >= dailyCap) {
+      return jsonResponse({ error: "daily_cap_reached", skipped: true });
+    }
+
+    const txHash = generateMockTxHash();
+
+    const { data: payoutRow, error: payoutError } = await supabaseAdmin
+      .from("engagement_payouts")
       .insert({
-        content_type,
-        content_id,
-        action_type,
-        payer_wallet: payer_wallet.toLowerCase(),
-        creator_wallet: creatorWallet.toLowerCase(),
+        content_type: contentType,
+        content_id: contentId,
+        action_type: actionType,
+        payer_wallet: payerWallet,
+        creator_wallet: creatorWallet,
         amount: payoutAmount,
-        tx_hash: mockTxHash,
-        status: 'confirmed',
+        tx_hash: txHash,
+        status: "confirmed",
         confirmed_at: new Date().toISOString(),
       })
-      .select()
+      .select("id")
       .single();
 
     if (payoutError) {
-      console.error('Error logging payout:', payoutError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to log payout' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse({ error: "payout_insert_failed" }, 500);
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        simulation: true,
-        tx_hash: mockTxHash,
-        amount: payoutAmount,
-        creator_wallet: creatorWallet,
-        payout_id: payout.id,
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-
+    return jsonResponse({
+      success: true,
+      simulation: true,
+      payout_id: payoutRow.id,
+      amount: payoutAmount,
+      creator_wallet: creatorWallet,
+      tx_hash: txHash,
+    });
   } catch (error) {
-    console.error('Engagement pay error:', error);
-    return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    console.error("[engagement-pay]", error);
+    return jsonResponse({ error: "internal_server_error" }, 500);
   }
 });

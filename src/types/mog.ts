@@ -7,6 +7,7 @@ export interface MogPost {
   thumbnail_url: string | null;
   title: string | null;
   description: string | null;
+  article_body?: string | null;
   hashtags: string[];
   creator_wallet: string;
   creator_name: string | null;

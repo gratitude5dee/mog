@@ -1,23 +1,24 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { Home, Search, Library, Flame, Play, Plus } from "lucide-react";
+import { Search, Library, Flame, Play, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { MOG_FEED_ALIAS_ROUTE, MOG_FEED_ROUTE } from "@/lib/routes";
 
 export function BottomNavigation() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const isMogContext = location.pathname.startsWith("/mog") || location.pathname === "/home";
+  const isMogContext = location.pathname.startsWith("/mog") || location.pathname === MOG_FEED_ROUTE;
 
   const navItems = isMogContext
     ? [
-        { icon: Flame, label: "Home", path: "/home" },
+        { icon: Flame, label: "Home", path: MOG_FEED_ROUTE },
         { icon: Play, label: "Watch", path: "/watch" },
         { icon: Plus, label: "Create", path: "/mog/upload", isCenter: true },
         { icon: Search, label: "Search", path: "/mog/search" },
         { icon: Library, label: "Library", path: "/mog/library" },
       ]
     : [
-        { icon: Flame, label: "Home", path: "/home" },
+        { icon: Flame, label: "Home", path: MOG_FEED_ROUTE },
         { icon: Play, label: "Watch", path: "/watch" },
         { icon: Plus, label: "Create", path: "/mog/upload", isCenter: true },
         { icon: Search, label: "Search", path: "/search" },
@@ -32,8 +33,10 @@ export function BottomNavigation() {
     >
       <div className="flex items-center justify-around h-14 max-w-lg mx-auto">
         {navItems.map((item) => {
-          const isActive = location.pathname === item.path || 
-            (item.path === "/home" && location.pathname.startsWith("/mog"));
+          const isActive =
+            location.pathname === item.path ||
+            (item.path === MOG_FEED_ROUTE &&
+              (location.pathname.startsWith("/mog") || location.pathname === MOG_FEED_ALIAS_ROUTE));
           
           // Center Create button with special styling
           if (item.isCenter) {

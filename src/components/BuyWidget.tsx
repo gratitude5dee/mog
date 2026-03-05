@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useWallet } from "@/contexts/WalletContext";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { x402Mode } from "@/lib/featureFlags";
 
 interface BuyWidgetProps {
   track: Track;
@@ -42,6 +43,7 @@ export function BuyWidget({ track, onClose, onSuccess }: BuyWidgetProps) {
           track_id: track.id,
           payer_wallet: address.toLowerCase(),
           amount: track.price,
+          mode_preference: x402Mode,
         }
       });
 
@@ -59,7 +61,7 @@ export function BuyWidget({ track, onClose, onSuccess }: BuyWidgetProps) {
       setActiveSession({
         id: data.stream.id,
         stream_id: data.stream.stream_id,
-        track_id: track.id,
+        track_id: data.stream.track_id || track.id,
         access_token: data.stream.access_token,
         expires_at: data.stream.expires_at,
       });
@@ -69,7 +71,9 @@ export function BuyWidget({ track, onClose, onSuccess }: BuyWidgetProps) {
 
       toast({
         title: "Payment successful!",
-        description: "Enjoy your 10-minute stream session",
+        description: data?.fallback_used
+          ? "Gateway unavailable, switched to legacy stream session."
+          : `Enjoy your 10-minute stream session (${data?.mode_used || "legacy"} mode).`,
       });
 
       onSuccess();

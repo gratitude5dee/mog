@@ -5,8 +5,9 @@ import { FeedType } from "@/types/mog";
 import { MogPostCard } from "@/components/mog/MogPostCard";
 import { MogHeader } from "@/components/mog/MogHeader";
 import { BottomNavigation } from "@/components/BottomNavigation";
-import { Loader2 } from "lucide-react";
+import { AlertCircle, Loader2, RefreshCcw } from "lucide-react";
 import { useMogPosts } from "@/hooks/useMogPosts";
+import { Button } from "@/components/ui/button";
 
 export default function Mog() {
   const navigate = useNavigate();
@@ -19,28 +20,39 @@ export default function Mog() {
   const { 
     posts, 
     isLoading, 
+    isError,
+    error,
     isFetchingNextPage, 
     hasNextPage, 
-    fetchNextPage 
+    fetchNextPage,
+    refetch,
   } = useMogPosts(feedType, address);
 
   // Infinite scroll observer
   useEffect(() => {
+    const root = containerRef.current;
+    if (!root || !loadMoreRef.current) return;
+
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && hasNextPage && !isFetchingNextPage) {
           fetchNextPage();
         }
       },
-      { rootMargin: '200px' }
+      { root, rootMargin: '400px 0px 400px 0px', threshold: 0.01 }
     );
 
-    if (loadMoreRef.current) {
-      observer.observe(loadMoreRef.current);
-    }
+    observer.observe(loadMoreRef.current);
 
     return () => observer.disconnect();
   }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
+
+  useEffect(() => {
+    setCurrentIndex(0);
+    if (containerRef.current) {
+      containerRef.current.scrollTo({ top: 0, behavior: 'auto' });
+    }
+  }, [feedType]);
 
   // Handle vertical scroll snap
   const handleScroll = useCallback(() => {
@@ -104,6 +116,20 @@ export default function Mog() {
         onScroll={handleScroll}
         className="h-screen overflow-y-scroll snap-y snap-mandatory scrollbar-hide"
       >
+        {isError && (
+          <div className="h-screen flex flex-col items-center justify-center gap-4 px-8 text-center bg-black">
+            <AlertCircle className="h-10 w-10 text-destructive" />
+            <p className="text-lg font-medium text-white">Feed failed to load</p>
+            <p className="text-white/70 text-sm">
+              {(error as Error | undefined)?.message || "Please try again."}
+            </p>
+            <Button onClick={() => refetch()} className="gap-2">
+              <RefreshCcw className="h-4 w-4" />
+              Retry
+            </Button>
+          </div>
+        )}
+
         {posts.map((post, index) => (
           <MogPostCard
             key={post.id}
@@ -120,6 +146,12 @@ export default function Mog() {
         {isFetchingNextPage && (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        )}
+
+        {!isFetchingNextPage && posts.length > 0 && !hasNextPage && (
+          <div className="flex items-center justify-center py-10 text-sm text-white/50">
+            You reached the end of this feed.
           </div>
         )}
 

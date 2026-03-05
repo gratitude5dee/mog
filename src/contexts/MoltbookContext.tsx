@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import type { MoltbookAgent, MoltbookContextType, MoltbookVerifyResponse } from "@/types/moltbook";
+import { supabase } from "@/integrations/supabase/client";
 
 const STORAGE_KEY = "moltbook_agent";
-const SUPABASE_URL = "https://ixkkrousepsiorwlaycp.supabase.co";
 
 const MoltbookContext = createContext<MoltbookContextType | undefined>(undefined);
 
@@ -30,23 +30,24 @@ export function MoltbookProvider({ children }: { children: React.ReactNode }) {
     setError(null);
 
     try {
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/verify-moltbook-identity`, {
-        method: "POST",
+      const { data, error: invokeError } = await supabase.functions.invoke("moltbook-auth", {
         headers: {
-          "Content-Type": "application/json",
           "X-Moltbook-Identity": token,
         },
-        body: JSON.stringify({ token }),
       });
 
-      const data: MoltbookVerifyResponse = await response.json();
+      if (invokeError) {
+        setError(invokeError.message || "Verification failed");
+        return false;
+      }
 
-      if (data.success && data.valid) {
-        setAgent(data.agent);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data.agent));
+      const payload = data as MoltbookVerifyResponse;
+      if (payload.valid && payload.agent) {
+        setAgent(payload.agent);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(payload.agent));
         return true;
-      } else if (!data.success && 'error' in data) {
-        const errorMessage = getErrorMessage(data.error);
+      } else if (!payload.valid && "error" in payload) {
+        const errorMessage = getErrorMessage(payload.error);
         setError(errorMessage);
         return false;
       }

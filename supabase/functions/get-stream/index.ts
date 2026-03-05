@@ -1,123 +1,101 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
 Deno.serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
+  if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
-  try {
-    const { track_id, access_token } = await req.json();
-    
-    console.log(`[get-stream] Request for track: ${track_id}`);
+  if (req.method !== "POST") {
+    return jsonResponse({ error: "method_not_allowed" }, 405);
+  }
 
-    if (!track_id || !access_token) {
-      console.error('[get-stream] Missing required parameters');
-      return new Response(
-        JSON.stringify({ error: 'Missing track_id or access_token' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+  try {
+    const { track_id: trackId, access_token: accessToken } = await req.json();
+    if (!trackId || !accessToken) {
+      return jsonResponse({ error: "missing_track_id_or_access_token" }, 400);
     }
 
-    // Create Supabase client with service role for admin access
     const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      { auth: { persistSession: false } }
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+      { auth: { persistSession: false } },
     );
 
-    // Verify the stream session is valid and not expired
-    const { data: session, error: sessionError } = await supabaseAdmin
-      .from('music_streams')
-      .select('id, track_id, expires_at, user_wallet')
-      .eq('track_id', track_id)
-      .eq('access_token', access_token)
-      .gt('expires_at', new Date().toISOString())
+    const nowIso = new Date().toISOString();
+
+    const { data: canonicalSession } = await supabaseAdmin
+      .from("stream_sessions")
+      .select("id, track_id, expires_at, payer_wallet, access_token, stream_id")
+      .eq("track_id", trackId)
+      .eq("access_token", accessToken)
+      .gt("expires_at", nowIso)
+      .order("created_at", { ascending: false })
+      .limit(1)
       .maybeSingle();
 
-    if (sessionError) {
-      console.error('[get-stream] Session query error:', sessionError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to verify session' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    const { data: legacySession } = canonicalSession
+      ? { data: null }
+      : await supabaseAdmin
+          .from("music_streams")
+          .select("id, track_id, expires_at, user_wallet, access_token, stream_id")
+          .eq("track_id", trackId)
+          .eq("access_token", accessToken)
+          .gt("expires_at", nowIso)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+    if (!canonicalSession && !legacySession) {
+      return jsonResponse({ error: "invalid_or_expired_session", code: "SESSION_EXPIRED" }, 403);
     }
 
-    if (!session) {
-      console.log('[get-stream] No valid session found');
-      return new Response(
-        JSON.stringify({ error: 'Invalid or expired session', code: 'SESSION_EXPIRED' }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log(`[get-stream] Valid session found, expires: ${session.expires_at}`);
-
-    // Get the track's audio path
     const { data: track, error: trackError } = await supabaseAdmin
-      .from('music_tracks')
-      .select('audio_path, title, artist')
-      .eq('id', track_id)
+      .from("music_tracks")
+      .select("audio_path, title, artist")
+      .eq("id", trackId)
       .single();
 
     if (trackError || !track) {
-      console.error('[get-stream] Track not found:', trackError);
-      return new Response(
-        JSON.stringify({ error: 'Track not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse({ error: "track_not_found" }, 404);
     }
 
-    // Check if audio_path exists before trying to create signed URL
     if (!track.audio_path) {
-      console.error('[get-stream] Track has no audio file:', track_id);
-      return new Response(
-        JSON.stringify({ 
-          error: 'Audio file not available', 
-          code: 'AUDIO_NOT_FOUND' 
-        }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse({ error: "audio_file_not_available", code: "AUDIO_NOT_FOUND" }, 404);
     }
 
-    // Generate a signed URL for the audio file (valid for 10 minutes)
-    const { data: signedUrlData, error: signedUrlError } = await supabaseAdmin
-      .storage
-      .from('audio')
-      .createSignedUrl(track.audio_path, 600); // 600 seconds = 10 minutes
+    const { data: signedUrlData, error: signedUrlError } = await supabaseAdmin.storage
+      .from("audio")
+      .createSignedUrl(track.audio_path, 600);
 
     if (signedUrlError || !signedUrlData) {
-      console.error('[get-stream] Failed to generate signed URL:', signedUrlError);
-      return new Response(
-        JSON.stringify({ error: 'Failed to generate stream URL' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return jsonResponse({ error: "failed_to_generate_stream_url" }, 500);
     }
 
-    console.log(`[get-stream] Signed URL generated for track: ${track.title}`);
+    const session = canonicalSession || legacySession;
 
-    return new Response(
-      JSON.stringify({
-        url: signedUrlData.signedUrl,
-        expires_at: session.expires_at,
-        track: {
-          title: track.title,
-          artist: track.artist
-        }
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-
+    return jsonResponse({
+      url: signedUrlData.signedUrl,
+      expires_at: session?.expires_at,
+      mode_used: canonicalSession ? "canonical" : "legacy_bridge",
+      track: {
+        title: track.title,
+        artist: track.artist,
+      },
+    });
   } catch (error) {
-    console.error('[get-stream] Unexpected error:', error);
-    return new Response(
-      JSON.stringify({ error: 'Internal server error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    console.error("[get-stream] unexpected_error", error);
+    return jsonResponse({ error: "internal_server_error" }, 500);
   }
 });

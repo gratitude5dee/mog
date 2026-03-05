@@ -21,6 +21,9 @@ import {
 import { Image, Upload, Loader2, ChevronDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { TagInput } from "./TagInput";
+import { supabase } from "@/integrations/supabase/client";
+import { requestWalletProof } from "@/lib/walletProof";
+import { MOG_FEED_ROUTE } from "@/lib/routes";
 
 const ARTICLE_CATEGORIES = [
   "Technology",
@@ -65,6 +68,15 @@ export function ArticleUploadForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!address) {
+      toast({
+        title: "Wallet required",
+        description: "Connect your wallet to publish.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!title || !author || !content || !category) {
       toast({
         title: "Missing fields",
@@ -75,12 +87,49 @@ export function ArticleUploadForm() {
     }
 
     setIsUploading(true);
+    try {
+      let thumbnailUrl: string | null = null;
+      if (thumbnailFile) {
+        const extension = thumbnailFile.name.split(".").pop() || "png";
+        const path = `${address.toLowerCase()}/article-thumb-${Date.now()}.${extension}`;
+        const { error: uploadError } = await supabase.storage.from("mog-media").upload(path, thumbnailFile);
+        if (uploadError) throw new Error(uploadError.message || "Failed to upload thumbnail");
+        const { data } = supabase.storage.from("mog-media").getPublicUrl(path);
+        thumbnailUrl = data.publicUrl;
+      }
 
-    // TODO: Implement article upload when articles table is created
-    toast({
-      title: "Coming Soon",
-      description: "Article uploads will be available soon!",
-    });
+      const walletProof = await requestWalletProof(address.toLowerCase(), "mog_upload:article:publish");
+      const { data, error } = await supabase.functions.invoke("mog-upload", {
+        body: {
+          content_type: "article",
+          media_url: thumbnailUrl,
+          title: title.trim(),
+          description: excerpt.trim() || null,
+          article_body: content.trim(),
+          hashtags: [category.trim().toLowerCase(), ...tags],
+          creator_wallet: address.toLowerCase(),
+          creator_name: author.trim(),
+          creator_type: "human",
+          wallet_proof: walletProof,
+        },
+      });
+
+      if (error || !data?.success) {
+        throw new Error(error?.message || data?.error || "Failed to publish article");
+      }
+
+      toast({
+        title: "Article published",
+        description: "Your article is now live in Mog feed.",
+      });
+      navigate(MOG_FEED_ROUTE);
+    } catch (error) {
+      toast({
+        title: "Publish failed",
+        description: error instanceof Error ? error.message : "Please retry.",
+        variant: "destructive",
+      });
+    }
 
     setIsUploading(false);
   };

@@ -114,16 +114,6 @@ export function useContentEngagement({
         });
       }
 
-      // Update the count in the source table
-      const tableName = contentType === 'track' ? 'music_tracks' 
-        : contentType === 'video' ? 'music_videos' 
-        : 'articles';
-      
-      await supabase
-        .from(tableName)
-        .update({ likes_count: newLikedState ? likesCount + 1 : likesCount - 1 })
-        .eq('id', contentId);
-
     } catch (error) {
       // Revert on error
       setIsLiked(!newLikedState);
@@ -179,16 +169,13 @@ export function useContentEngagement({
       }
       
       setSharesCount(prev => prev + 1);
-      
-      // Update share count in database
-      const tableName = contentType === 'track' ? 'music_tracks' 
-        : contentType === 'video' ? 'music_videos' 
-        : 'articles';
-      
-      await supabase
-        .from(tableName)
-        .update({ shares_count: sharesCount + 1 })
-        .eq('id', contentId);
+
+      if (address) {
+        await supabase.functions.invoke('content-interact', {
+          body: { action_type: 'share', content_type: contentType, content_id: contentId },
+          headers: { 'x-wallet-address': address.toLowerCase() }
+        });
+      }
       
       // Trigger $5DEE payout for share (fire and forget)
       triggerPayout('share');
@@ -196,7 +183,7 @@ export function useContentEngagement({
     } catch {
       // User cancelled share or fallback worked
     }
-  }, [contentType, contentId, sharesCount, triggerPayout]);
+  }, [address, contentType, contentId, triggerPayout]);
 
   return {
     isLiked,

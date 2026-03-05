@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { MogPost } from "@/types/mog";
 import { formatNumber } from "@/lib/utils";
 import { BottomNavigation } from "@/components/BottomNavigation";
+import { MOG_FEED_ROUTE } from "@/lib/routes";
 
 interface TrendingHashtag {
   tag: string;
@@ -109,7 +110,7 @@ export default function MogSearch() {
       {/* Header */}
       <div className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border safe-top">
         <div className="flex items-center gap-3 px-4 py-3">
-          <button onClick={() => navigate('/mog')}>
+          <button onClick={() => navigate(MOG_FEED_ROUTE)}>
             <ArrowLeft className="h-6 w-6" />
           </button>
           <div className="flex-1 relative">

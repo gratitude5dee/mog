@@ -44,3 +44,12 @@
 - **Owner:** User + OpenClaw
 - **Status:** Active
 - **Created:** 2026-02-03 01:36 PST
+
+## OC-20260305-0001 — Mog Stabilization + Hybrid x402 + Moltbook Autonomy
+- **Goal:** Stabilize Mog feed/upload/payout reliability first, then harden hybrid x402 streaming and Moltbook autonomous agent flows with staging-first rollout.
+- **Scope:** `/mog` route compatibility, cursor feed, wallet-proof sensitive writes, upload validation/retry/progress, engagement payout correctness, x402 hybrid mode integration, Moltbook verifier consolidation, bot scheduler tables/function.
+- **Out of Scope:** Lockfile churn, Lovable build/deploy plumbing changes, ungated production rollout.
+- **Timeline:** Iterative phased rollout (Phase 1 -> Phase 4), staging first.
+- **Owner:** User + OpenClaw
+- **Status:** Active
+- **Created:** 2026-03-05 01:48 PST
