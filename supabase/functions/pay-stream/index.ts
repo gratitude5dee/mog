@@ -53,7 +53,7 @@ function parseCanaryWallets(rawValue: string | null): Set<string> {
     String(rawValue || "")
       .split(",")
       .map((wallet) => wallet.trim().toLowerCase())
-      .filter((wallet) => /^0x[a-f0-9]{40}$/i.test(wallet)),
+      .filter((wallet) => /^0x[a-f0-9]{40}$/i.test(wallet))
       .slice(0, 5),
   );
 }
