@@ -1,34 +1,35 @@
 
 
-## Plan: Fix 10 Build Errors
+## Plan: Fix `get-stream` and `mog-feed` Runtime Errors
 
-### 1. `moltbook.ts` — `explicit` possibly undefined (1 error)
+### Analysis
 
-`Deno.env.get()` returns `string | undefined`, not `string | null`. The null check on line 32 doesn't narrow properly.
+From the logs and code:
 
-**Fix:** Change `if (explicit !== null)` to `if (explicit !== undefined)` (or just `if (explicit)`).
+1. **`get-stream/index.ts`** has two issues:
+   - Uses deprecated `esm.sh` import (`https://esm.sh/@supabase/supabase-js@2`) instead of the standard `npm:` specifier. Per your project convention, all edge functions must use `npm:@supabase/supabase-js@2`.
+   - CORS headers are incomplete -- missing `x-supabase-client-platform`, `x-supabase-client-platform-version`, `x-supabase-client-runtime`, `x-supabase-client-runtime-version`. This can cause preflight failures from the Supabase JS client.
 
-### 2. `engagement-pay/index.ts` — Type cast error (1 error)
+2. **`mog-feed/index.ts`** appears already fixed (logs show clean boots, code uses `npm:` and has full CORS headers). The error timestamp is older and likely stale.
 
-Line 129: The `.single()` return type doesn't match `Record<string, unknown>` cast. Fix by adding an intermediate `unknown` cast: `(contentRow as unknown as Record<string, unknown>)`.
+### Changes
 
-### 3. `moltbook-interact/index.ts` — Property access on `never` + client type mismatch (5 errors)
+**File: `supabase/functions/get-stream/index.ts`**
 
-Lines 41-57: The `.maybeSingle()` calls return typed data that TS can't resolve, resulting in `never` types. Fix by casting `data` as `any` in each branch.
+1. Change line 1 import from `esm.sh` to `npm:`:
+   ```typescript
+   import { createClient } from "npm:@supabase/supabase-js@2";
+   ```
 
-Line 158: The `supabaseAdmin` type doesn't match the function parameter. Fix by typing the parameter as `any` instead of `ReturnType<typeof createClient>`.
+2. Update CORS headers (line 4-5) to include the full set:
+   ```typescript
+   const corsHeaders = {
+     "Access-Control-Allow-Origin": "*",
+     "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
+   };
+   ```
 
-### 4. `MogUpload.tsx` — `maxDurationSeconds` not on all union members (3 errors)
+3. Redeploy the `get-stream` edge function.
 
-Lines 155-158: `FILE_RULES[contentType]` is a union where `image` lacks `maxDurationSeconds`. Fix by narrowing with `'maxDurationSeconds' in rule` check instead of accessing the property directly.
-
-### Summary of Changes
-
-| File | Fix |
-|------|-----|
-| `_shared/moltbook.ts:32` | `!== null` → `!== undefined` |
-| `engagement-pay/index.ts:129` | Add `unknown` intermediate cast |
-| `moltbook-interact/index.ts:36` | Parameter type → `any` |
-| `moltbook-interact/index.ts:42,47,52,57` | Cast `data` as `any` |
-| `MogUpload.tsx:155-158` | Use `in` operator to narrow union |
+No other files need changes.
 
