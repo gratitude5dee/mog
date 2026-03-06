@@ -1,34 +1,62 @@
 
 
-## Plan: Fix 10 Build Errors
+## Plan: Restyle Landing Page with WZRD.STUDIO Premium Dark Design
 
-### 1. `moltbook.ts` — `explicit` possibly undefined (1 error)
+The current `/landing` page uses the EARTONE sand colorway (warm beige backgrounds, muted tones). The user wants it restyled to match the WZRD.STUDIO premium dark aesthetic shown in the screenshots — black background, coral/orange accents, glassmorphism cards, motion backgrounds, and framer-motion animations.
 
-`Deno.env.get()` returns `string | undefined`, not `string | null`. The null check on line 32 doesn't narrow properly.
+### Approach
 
-**Fix:** Change `if (explicit !== null)` to `if (explicit !== undefined)` (or just `if (explicit)`).
+Rather than porting all ~15 WZRD landing sub-components individually (which would be massive), I will:
 
-### 2. `engagement-pay/index.ts` — Type cast error (1 error)
+1. **Restyle the existing `Landing.tsx` in-place** — swap the `landing-*` color tokens from sand to dark premium values
+2. **Port key WZRD landing components** that add the premium polish the screenshots show
+3. **Update CSS variables** for the landing palette
 
-Line 129: The `.single()` return type doesn't match `Record<string, unknown>` cast. Fix by adding an intermediate `unknown` cast: `(contentRow as unknown as Record<string, unknown>)`.
+### Changes
 
-### 3. `moltbook-interact/index.ts` — Property access on `never` + client type mismatch (5 errors)
+#### 1. Update CSS Variables (`src/index.css`)
+Change the `landing-*` variables from EARTONE sand to premium dark:
+- `--landing-bg` → near-black (`228 12% 5%`)
+- `--landing-bg-elevated` → dark surface (`228 12% 9%`)
+- `--landing-text` → near-white (`220 20% 95%`)
+- `--landing-text-muted` → muted white (`220 10% 55%`)
+- `--landing-coral` → coral/orange (`14 100% 64%`)
+- `--landing-border` → subtle dark border (`228 10% 15%`)
+- etc.
 
-Lines 41-57: The `.maybeSingle()` calls return typed data that TS can't resolve, resulting in `never` types. Fix by casting `data` as `any` in each branch.
+#### 2. Create Landing Sub-Components (`src/components/landing/`)
+Port from WZRD.STUDIO-main, adapted for Mog branding:
+- **`MotionBackground.tsx`** — Parallax gradient orbs, wave SVGs, floating particles (the hero background effect)
+- **`HeroSection.tsx`** — Full-viewport hero with badge pill, gradient text headline, dual CTAs, scroll indicator
+- **`FeatureGrid.tsx`** — 6-card grid with hover glow effects (adapted: Mog features instead of WZRD features)
+- **`TestimonialCard.tsx`** — Glass card with avatar initials, quote marks
+- **`TestimonialsSection.tsx`** — 3-column testimonial grid
+- **`FAQAccordion.tsx`** — Animated expand/collapse with Plus icon rotation
+- **`PricingSectionRedesigned.tsx`** — 4-tier pricing with annual toggle, glow highlights
+- **`NewReleasePromo.tsx`** — Gradient CTA banner
+- **`StickyFooter.tsx`** — Newsletter, 4-column links, social icons, back-to-top
 
-Line 158: The `supabaseAdmin` type doesn't match the function parameter. Fix by typing the parameter as `any` instead of `ReturnType<typeof createClient>`.
+#### 3. Rewrite `src/pages/Landing.tsx`
+Replace the current monolithic page with the WZRD.STUDIO structure:
+- Black background with radial gradient top glow
+- Floating pill-shaped sticky header (desktop + mobile hamburger)
+- Compose the above sub-components with Mog-adapted content (agent API docs, $5DEE tokenomics, Mog branding)
+- Replace `useAuth` with wallet-based auth check
+- Replace WZRD logo with `MogLogo`
+- Adapt all routes (`/login` → `/auth`, `/demo` → `/home`, etc.)
 
-### 4. `MogUpload.tsx` — `maxDurationSeconds` not on all union members (3 errors)
+### Content Adaptations (WZRD → Mog)
+- Hero: "Agent-Native Generative Media Studio" badge, "Mog Studio" headline
+- Features: Agent-First API, Vertical Video Feed, Earn $5DEE, etc. (keep existing Mog feature content)
+- Use Cases: adapted for agent/creator use cases
+- Testimonials: keep existing Mog testimonials
+- Pricing: adapted for Mog tiers
+- FAQ: adapted for Mog questions
+- Footer: Mog branding, $5DEE reference
 
-Lines 155-158: `FILE_RULES[contentType]` is a union where `image` lacks `maxDurationSeconds`. Fix by narrowing with `'maxDurationSeconds' in rule` check instead of accessing the property directly.
-
-### Summary of Changes
-
-| File | Fix |
-|------|-----|
-| `_shared/moltbook.ts:32` | `!== null` → `!== undefined` |
-| `engagement-pay/index.ts:129` | Add `unknown` intermediate cast |
-| `moltbook-interact/index.ts:36` | Parameter type → `any` |
-| `moltbook-interact/index.ts:42,47,52,57` | Cast `data` as `any` |
-| `MogUpload.tsx:155-158` | Use `in` operator to narrow union |
+### Implementation Order
+1. Update CSS landing variables to dark palette
+2. Create all 9 landing sub-components
+3. Rewrite Landing.tsx page to compose them
+4. No routing changes needed (already at `/landing`)
 
