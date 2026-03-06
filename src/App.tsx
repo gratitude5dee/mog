@@ -6,7 +6,6 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ThirdwebProvider } from "thirdweb/react";
 import { WalletProvider } from "@/contexts/WalletContext";
 import { PlayerProvider } from "@/contexts/PlayerContext";
-import { SidebarProvider } from "@/contexts/SidebarContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { MoltbookProvider } from "@/contexts/MoltbookContext";
 import { NotificationProvider } from "@/contexts/NotificationContext";
@@ -27,7 +26,6 @@ import EmbedPlayer from "./pages/EmbedPlayer";
 import Onboarding from "./pages/Onboarding";
 import NotFound from "./pages/NotFound";
 import Mog from "./pages/Mog";
-import Home from "./pages/Home";
 import MogUpload from "./pages/MogUpload";
 import MogProfile from "./pages/MogProfile";
 import MogPost from "./pages/MogPost";
@@ -46,13 +44,11 @@ const App = () => (
           <NotificationProvider>
             <MoltbookProvider>
               <PlayerProvider>
-                <SidebarProvider>
                 <TooltipProvider>
                   <Toaster />
                   <Sonner />
                   <BrowserRouter>
                     <Routes>
-                      <Route path="/home" element={<Home />} />
                       <Route path="/" element={<Intro />} />
                       <Route path="/landing" element={<Landing />} />
                       <Route path="/auth" element={<Auth />} />
@@ -81,7 +77,6 @@ const App = () => (
                     </Routes>
                   </BrowserRouter>
                 </TooltipProvider>
-                </SidebarProvider>
               </PlayerProvider>
             </MoltbookProvider>
           </NotificationProvider>
