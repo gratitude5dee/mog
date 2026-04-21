@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import { logOpsEvent } from "../_shared/ops-log.ts";
 
 const corsHeaders = {
@@ -58,7 +58,7 @@ function parseCanaryWallets(rawValue: string | null): Set<string> {
   );
 }
 
-Deno.serve(async (req) => {
+Deno.Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }

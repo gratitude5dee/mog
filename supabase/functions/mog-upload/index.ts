@@ -1,5 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import { verifyAndConsumeWalletProof, WalletProofPayload } from "../_shared/wallet-proof.ts";
 
 const corsHeaders = {
@@ -44,7 +43,7 @@ function isContentType(value: unknown): value is ContentType {
   return value === "video" || value === "image" || value === "article";
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
