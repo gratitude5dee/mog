@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useCallback, useEffect, useState } from "react";
 import { useActiveAccount, useActiveWallet, useConnect, useDisconnect } from "thirdweb/react";
 import { createWallet, inAppWallet, type Wallet } from "thirdweb/wallets";
-import { thirdwebClient, apeChain, isThirdwebConfigured } from "@/lib/thirdweb";
+import { apeChain, getThirdwebClient, isThirdwebReady } from "@/lib/thirdweb";
 
 type SocialStrategy = "google" | "apple";
 
@@ -32,17 +32,29 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const { connect: thirdwebConnect, isConnecting } = useConnect();
   const { disconnect: thirdwebDisconnect } = useDisconnect();
   const [error, setError] = useState<string | null>(null);
+  const [isConfigured, setIsConfigured] = useState(isThirdwebReady());
+
+  // Bootstrap thirdweb client on mount (fetch client ID from edge function).
+  useEffect(() => {
+    let cancelled = false;
+    getThirdwebClient()
+      .then(() => {
+        if (!cancelled) setIsConfigured(true);
+      })
+      .catch((e) => {
+        console.error("Thirdweb config load failed:", e);
+        if (!cancelled) {
+          setIsConfigured(false);
+          setError("Sign-in unavailable: failed to load Thirdweb configuration.");
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const address = account?.address ?? null;
   const isConnected = !!account;
-
-  const guard = () => {
-    if (!isThirdwebConfigured) {
-      const msg = "Thirdweb is not configured. Set VITE_THIRDWEB_CLIENT_ID.";
-      setError(msg);
-      throw new Error(msg);
-    }
-  };
 
   const handleError = (e: unknown, fallback: string) => {
     const msg = e instanceof Error ? e.message : fallback;
@@ -53,11 +65,11 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const connectExternal = useCallback(
     async (id: "io.metamask" | "com.coinbase.wallet" | "walletConnect") => {
       try {
-        guard();
         setError(null);
+        const client = await getThirdwebClient();
         const w = createWallet(id);
         await thirdwebConnect(async () => {
-          await w.connect({ client: thirdwebClient, chain: apeChain });
+          await w.connect({ client, chain: apeChain });
           return w;
         });
       } catch (e) {
@@ -70,11 +82,11 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const connectSocial = useCallback(
     async (strategy: SocialStrategy) => {
       try {
-        guard();
         setError(null);
+        const client = await getThirdwebClient();
         const w = inAppWallet({ auth: { options: ["google", "apple", "email", "passkey"] } });
         await thirdwebConnect(async () => {
-          await w.connect({ client: thirdwebClient, chain: apeChain, strategy });
+          await w.connect({ client, chain: apeChain, strategy });
           return w as unknown as Wallet;
         });
       } catch (e) {
@@ -85,11 +97,11 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   );
 
   const preAuthEmail = useCallback(async (email: string) => {
-    guard();
     setError(null);
     try {
+      const client = await getThirdwebClient();
       const { preAuthenticate } = await import("thirdweb/wallets/in-app");
-      await preAuthenticate({ client: thirdwebClient, strategy: "email", email });
+      await preAuthenticate({ client, strategy: "email", email });
     } catch (e) {
       handleError(e, "Failed to send verification email");
       throw e;
@@ -99,17 +111,11 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const connectEmail = useCallback(
     async (email: string, verificationCode: string) => {
       try {
-        guard();
         setError(null);
+        const client = await getThirdwebClient();
         const w = inAppWallet({ auth: { options: ["google", "apple", "email", "passkey"] } });
         await thirdwebConnect(async () => {
-          await w.connect({
-            client: thirdwebClient,
-            chain: apeChain,
-            strategy: "email",
-            email,
-            verificationCode,
-          });
+          await w.connect({ client, chain: apeChain, strategy: "email", email, verificationCode });
           return w as unknown as Wallet;
         });
       } catch (e) {
@@ -119,7 +125,6 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     [thirdwebConnect]
   );
 
-  // Default connect = open MetaMask (kept for backward compat)
   const connect = useCallback(async () => {
     await connectExternal("io.metamask");
   }, [connectExternal]);
@@ -162,7 +167,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         connectEmail,
         disconnect,
         clearError,
-        isConfigured: isThirdwebConfigured,
+        isConfigured,
       }}
     >
       {children}
