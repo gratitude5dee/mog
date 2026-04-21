@@ -1,5 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import { logOpsEvent } from "../_shared/ops-log.ts";
 
 const corsHeaders = {
@@ -24,7 +23,7 @@ function toIsoMinutesFromNow(minutes: number): string {
   return new Date(Date.now() + minutes * 60 * 1000).toISOString();
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }

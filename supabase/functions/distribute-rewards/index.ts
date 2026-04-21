@@ -1,22 +1,13 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createThirdwebClient, defineChain, getContract, prepareContractCall, sendTransaction } from "npm:thirdweb";
-import { privateKeyToAccount } from "npm:thirdweb/wallets";
+import { Contract, JsonRpcProvider, Wallet } from "npm:ethers@6";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const apeChain = defineChain({
-  id: 33139,
-  name: "ApeChain",
-  rpc: "https://rpc.apechain.com",
-  nativeCurrency: {
-    name: "ApeCoin",
-    symbol: "APE",
-    decimals: 18,
-  },
-});
+const APECHAIN_RPC_URL = "https://rpc.apechain.com";
+const ERC20_ABI = ["function transfer(address to, uint256 amount) returns (bool)"];
 
 function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
@@ -31,7 +22,7 @@ function toTokenUnits(amount: string, decimals = 18) {
   return BigInt(whole || "0") * 10n ** BigInt(decimals) + BigInt(padded || "0");
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
@@ -47,38 +38,29 @@ serve(async (req) => {
       return jsonResponse({ error: "missing_fields" }, 400);
     }
 
-    const secretKey = Deno.env.get("THIRDWEB_SECRET_KEY");
     const adminPrivateKey = Deno.env.get("ADMIN_PRIVATE_KEY");
     const tokenAddress = Deno.env.get("FIVE_DEE_TOKEN_ADDRESS");
 
-    if (!secretKey || !adminPrivateKey || !tokenAddress) {
+    if (!adminPrivateKey || !tokenAddress) {
       return jsonResponse({ error: "missing_env" }, 500);
     }
 
-    const client = createThirdwebClient({ secretKey });
-    const account = privateKeyToAccount({ client, privateKey: adminPrivateKey });
+    const provider = new JsonRpcProvider(APECHAIN_RPC_URL);
+    const signer = new Wallet(adminPrivateKey, provider);
+    const contract = new Contract(tokenAddress, ERC20_ABI, signer);
+    const tx = await contract.transfer(creatorWallet, toTokenUnits(String(amount)));
+    const receipt = await tx.wait();
 
-    const contract = getContract({
-      client,
-      chain: apeChain,
-      address: tokenAddress,
-    });
-
-    const tx = prepareContractCall({
-      contract,
-      method: "function transfer(address to, uint256 amount) returns (bool)",
-      params: [creatorWallet, toTokenUnits(String(amount))],
-    });
-
-    const result = await sendTransaction({ transaction: tx, account });
+    if (!receipt?.hash) {
+      throw new Error("transaction_receipt_missing");
+    }
 
     if (contentType && contentId && payerWallet) {
       const supabaseUrl = Deno.env.get("SUPABASE_URL");
       const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
       if (supabaseUrl && supabaseServiceKey) {
-        const { createClient } = await import("https://esm.sh/@supabase/supabase-js@2");
-        const supabase = createClient(supabaseUrl, supabaseServiceKey);
+        const supabase = createClient(supabaseUrl, supabaseServiceKey, { auth: { persistSession: false } });
 
         await supabase
           .from("engagement_payouts")
@@ -89,7 +71,7 @@ serve(async (req) => {
             payer_wallet: String(payerWallet).toLowerCase(),
             creator_wallet: String(creatorWallet).toLowerCase(),
             amount: Number(amount),
-            tx_hash: result.transactionHash,
+            tx_hash: receipt.hash,
             status: "confirmed",
             confirmed_at: new Date().toISOString(),
           }, {
@@ -100,7 +82,7 @@ serve(async (req) => {
 
     return jsonResponse({
       success: true,
-      transactionHash: result.transactionHash,
+      transactionHash: receipt.hash,
       actionType,
     });
   } catch (error) {
