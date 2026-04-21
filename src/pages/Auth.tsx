@@ -16,7 +16,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { ConnectButton } from "thirdweb/react";
-import { thirdwebClient, apeChain, wallets } from "@/lib/thirdweb";
+import { apeChain, wallets, getThirdwebClient } from "@/lib/thirdweb";
+import type { ThirdwebClient } from "thirdweb";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -44,6 +45,15 @@ export default function Welcome() {
   const [emailStep, setEmailStep] = useState<"email" | "code">("email");
   const [emailLoading, setEmailLoading] = useState(false);
   const [pendingMoltbookLink, setPendingMoltbookLink] = useState(false);
+  const [twClient, setTwClient] = useState<ThirdwebClient | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getThirdwebClient()
+      .then((c) => !cancelled && setTwClient(c))
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     const tokenFromUrl = searchParams.get("moltbook_token");
@@ -391,10 +401,10 @@ export default function Welcome() {
           )}
         </Button>
 
-        {isConfigured && (
+        {isConfigured && twClient && (
           <div className="flex justify-center pt-1">
             <ConnectButton
-              client={thirdwebClient}
+              client={twClient}
               chain={apeChain}
               wallets={wallets}
               theme="dark"
