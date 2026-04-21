@@ -87,24 +87,12 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const preAuthEmail = useCallback(async (email: string) => {
     guard();
     setError(null);
-    const w = inAppWallet({ auth: { options: ["google", "apple", "email", "passkey"] } });
     try {
-      await w.connect({
-        client: thirdwebClient,
-        chain: apeChain,
-        strategy: "email",
-        email,
-        // @ts-expect-error preAuthenticate is fine via connect for some versions; use sendVerificationEmail when supported
-      });
+      const { preAuthenticate } = await import("thirdweb/wallets/in-app");
+      await preAuthenticate({ client: thirdwebClient, strategy: "email", email });
     } catch (e) {
-      // Fallback: use the documented preAuthenticate API
-      try {
-        const { preAuthenticate } = await import("thirdweb/wallets/in-app");
-        await preAuthenticate({ client: thirdwebClient, strategy: "email", email });
-      } catch (inner) {
-        handleError(inner, "Failed to send verification email");
-        throw inner;
-      }
+      handleError(e, "Failed to send verification email");
+      throw e;
     }
   }, []);
 

@@ -16,7 +16,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { ConnectButton } from "thirdweb/react";
-import { thirdwebClient, apeChain, wallets, isThirdwebConfigured } from "@/lib/thirdweb";
+import { thirdwebClient, apeChain, wallets } from "@/lib/thirdweb";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -95,8 +95,12 @@ export default function Welcome() {
         })();
 
       if (storedAgent) {
-        const { error: upsertError } = await supabase
-          .from("moltbook_profiles" as never)
+        const { error: upsertError } = await (supabase as unknown as {
+          from: (t: string) => {
+            upsert: (v: Record<string, unknown>, o: { onConflict: string }) => Promise<{ error: unknown }>;
+          };
+        })
+          .from("moltbook_profiles")
           .upsert(
             {
               wallet_address: address.toLowerCase(),
