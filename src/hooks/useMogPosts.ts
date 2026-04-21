@@ -12,23 +12,41 @@ type MogFeedResponse = {
 
 const PAGE_SIZE = 20;
 
+function buildMogFeedUrl(feedType: FeedType, address?: string, cursor: string | null = null) {
+  const url = new URL(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/mog-feed`);
+  url.searchParams.set("feed_type", feedType);
+  url.searchParams.set("limit", String(PAGE_SIZE));
+  url.searchParams.set("sort", "new");
+
+  if (address) {
+    url.searchParams.set("wallet", address.toLowerCase());
+  }
+
+  if (cursor) {
+    url.searchParams.set("cursor", cursor);
+  }
+
+  return url.toString();
+}
+
 async function fetchMogPosts(
   feedType: FeedType,
   address?: string,
   cursor: string | null = null,
 ): Promise<MogFeedResponse> {
-  const { data, error } = await supabase.functions.invoke("mog-feed", {
-    body: {
-      feed_type: feedType,
-      wallet: address?.toLowerCase(),
-      cursor,
-      limit: PAGE_SIZE,
-      sort: "new",
+  const response = await fetch(buildMogFeedUrl(feedType, address, cursor), {
+    method: "GET",
+    headers: {
+      apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+      Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+      "Content-Type": "application/json",
     },
   });
 
-  if (error) {
-    throw new Error(error.message || "Failed to load feed");
+  const data = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(data?.error || `Failed to load feed (${response.status})`);
   }
 
   if (!data?.success) {
