@@ -401,10 +401,10 @@ export default function Welcome() {
           )}
         </Button>
 
-        {isConfigured && (
+        {isConfigured && twClient && (
           <div className="flex justify-center pt-1">
             <ConnectButton
-              client={thirdwebClient}
+              client={twClient}
               chain={apeChain}
               wallets={wallets}
               theme="dark"
