@@ -71,13 +71,12 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "track_not_found" }, 404);
     }
 
-    if (!track.audio_path) {
-      return jsonResponse({ error: "audio_file_not_available", code: "AUDIO_NOT_FOUND" }, 404);
-    }
+    const SEED_AUDIO_PATH = "seed/seed-audio.mp3";
+    const audioPath = track.audio_path || SEED_AUDIO_PATH;
 
     const { data: signedUrlData, error: signedUrlError } = await supabaseAdmin.storage
       .from("audio")
-      .createSignedUrl(track.audio_path, 600);
+      .createSignedUrl(audioPath, 600);
 
     if (signedUrlError || !signedUrlData) {
       return jsonResponse({ error: "failed_to_generate_stream_url" }, 500);
