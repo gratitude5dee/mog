@@ -137,18 +137,23 @@ Deno.serve(async (req) => {
       const streamId = `stream_${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
       const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
-      const { data: sessionId, error: sessionError } = await supabaseAdmin.rpc("create_stream_session", {
-        p_stream_id: streamId,
-        p_track_id: track.id,
-        p_payer_wallet: payerWallet,
-        p_artist_wallet: track.artist_wallet,
-        p_access_token: accessToken,
-        p_expires_at: expiresAt,
-        p_tx_hash: txHash,
-      });
+      const { data: insertedSession, error: sessionError } = await supabaseAdmin
+        .from("music_streams")
+        .upsert(
+          {
+            stream_id: streamId,
+            track_id: track.id,
+            user_wallet: payerWallet,
+            access_token: accessToken,
+            expires_at: expiresAt,
+          },
+          { onConflict: "stream_id" },
+        )
+        .select("id")
+        .maybeSingle();
 
-      if (sessionError || !sessionId) {
-        console.error("[pay-stream] failed creating canonical stream session", sessionError);
+      if (sessionError || !insertedSession?.id) {
+        console.error("[pay-stream] failed creating stream session", sessionError);
         await emit("error", "pay_stream_legacy_session_create_failed", "legacy", "error", {
           fallback_from_gateway: Boolean(fallbackFrom),
           fallback_reason: fallbackFrom?.error || null,
@@ -157,16 +162,7 @@ Deno.serve(async (req) => {
         return jsonResponse({ error: "failed_to_create_stream_session" }, 500);
       }
 
-      await supabaseAdmin.from("music_streams").upsert(
-        {
-          stream_id: streamId,
-          track_id: track.id,
-          user_wallet: payerWallet,
-          access_token: accessToken,
-          expires_at: expiresAt,
-        },
-        { onConflict: "stream_id" },
-      );
+      const sessionId = insertedSession.id;
 
       await supabaseAdmin.from("music_transactions").insert({
         track_id: track.id,
