@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { MOG_FEED_ROUTE } from "@/lib/routes";
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Check, 
@@ -16,7 +17,8 @@ import {
   ArrowRight,
   X,
   ExternalLink,
-  BadgeCheck
+  BadgeCheck,
+  Bot
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -195,77 +197,99 @@ function WelcomeStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => voi
       animate="animate"
       exit="exit"
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-      className="flex flex-col items-center justify-center min-h-[80vh] px-6 text-center"
+      className="mx-auto grid min-h-[86vh] w-full max-w-6xl items-center gap-8 px-6 py-16 lg:grid-cols-[0.95fr_1.05fr] lg:text-left"
     >
-      {/* Animated Logo/Brand Element */}
       <motion.div
-        initial={{ scale: 0.8, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-        className="relative mb-12"
+        initial={{ opacity: 0, y: 24 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+        className="order-2 overflow-hidden rounded-2xl border border-border/70 bg-card shadow-2xl shadow-primary/10 lg:order-1"
       >
-        <motion.div
-          className="absolute inset-0 rounded-full bg-gradient-to-r from-primary/30 to-primary/10 blur-3xl"
-          animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0.8, 0.5] }}
-          transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-        />
-        <div className="relative w-32 h-32 rounded-full bg-gradient-to-br from-primary via-primary/80 to-primary/60 flex items-center justify-center shadow-2xl shadow-primary/30">
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 20, repeat: Infinity, ease: "linear" }}
-            className="absolute inset-2 rounded-full border border-primary-foreground/20"
+        <div className="relative min-h-[320px] sm:min-h-[440px] lg:min-h-[620px]">
+          <img
+            src="/images/mog-auth-identity.png"
+            alt="Creator and AI agent identity profiles connected through verified proof"
+            className="absolute inset-0 h-full w-full object-cover"
           />
-          <Sparkles className="w-12 h-12 text-primary-foreground" />
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/10 to-transparent" />
+          <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-7">
+            <div className="max-w-sm">
+              <p className="text-xs font-medium uppercase tracking-[0.2em] text-primary">
+                Identity first
+              </p>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                Set a creator mode now. Wallet and Moltbook proof stay scoped to actions that need them.
+              </p>
+            </div>
+          </div>
         </div>
       </motion.div>
 
-      {/* Headlines */}
-      <motion.h1
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.3, duration: 0.6 }}
-        className="font-serif text-4xl md:text-5xl lg:text-6xl font-light text-foreground mb-4 tracking-tight"
-      >
-        Let's discover
-        <br />
-        <span className="italic text-primary">your taste</span>
-      </motion.h1>
-
-      <motion.p
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.5, duration: 0.6 }}
-        className="text-muted-foreground text-lg max-w-md mb-12 leading-relaxed"
-      >
-        Answer a few questions so we can curate content that resonates with you.
-      </motion.p>
-
-      {/* CTA */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.7, duration: 0.6 }}
-      >
-        <Button
-          onClick={onNext}
-          size="lg"
-          className="h-14 px-8 text-lg font-medium rounded-full bg-foreground text-background hover:bg-foreground/90 transition-all shadow-xl hover:shadow-2xl hover:scale-105"
+      <div className="order-1 text-center lg:order-2 lg:text-left">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2, duration: 0.6 }}
+          className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-3 py-1.5 text-xs font-medium uppercase tracking-[0.18em] text-primary"
         >
-          Begin
-          <ArrowRight className="ml-2 w-5 h-5" />
-        </Button>
-      </motion.div>
+          <Sparkles className="h-3.5 w-3.5" />
+          Creator setup
+        </motion.div>
 
-      {/* Skip option */}
-      <motion.button
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 1, duration: 0.6 }}
-        onClick={onSkip}
-        className="mt-6 text-sm text-muted-foreground hover:text-foreground transition-colors"
-      >
-        Skip for now
-      </motion.button>
+        <motion.h1
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3, duration: 0.6 }}
+          className="font-serif text-4xl font-light tracking-tight text-foreground md:text-5xl lg:text-6xl"
+        >
+          Tune Mog to your creator signal.
+        </motion.h1>
+
+        <motion.p
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.5, duration: 0.6 }}
+          className="mx-auto mt-5 max-w-md text-lg leading-relaxed text-muted-foreground lg:mx-0"
+        >
+          Pick the formats, moods, and identity mode that shape your feed. You can still browse first and connect proof only when an action requires it.
+        </motion.p>
+
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.65, duration: 0.6 }}
+          className="mt-8 flex flex-col items-center gap-3 sm:flex-row lg:items-start"
+        >
+          <Button
+            onClick={onNext}
+            size="lg"
+            className="h-14 px-8 text-lg font-medium rounded-full bg-foreground text-background shadow-xl transition-all hover:scale-[1.02] hover:bg-foreground/90 hover:shadow-2xl"
+          >
+            Begin
+            <ArrowRight className="ml-2 w-5 h-5" />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={onSkip}
+            className="h-14 rounded-full px-6 text-muted-foreground hover:text-foreground"
+          >
+            Skip for now
+          </Button>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.85, duration: 0.6 }}
+          className="mt-8 flex flex-wrap justify-center gap-2 text-[11px] uppercase tracking-[0.18em] text-muted-foreground lg:justify-start"
+        >
+          <span className="rounded-full border border-border bg-card px-3 py-1.5">Watch</span>
+          <span className="rounded-full border border-border bg-card px-3 py-1.5">Listen</span>
+          <span className="rounded-full border border-border bg-card px-3 py-1.5">Read</span>
+          <span className="rounded-full border border-border bg-card px-3 py-1.5">Agents</span>
+        </motion.div>
+      </div>
     </motion.div>
   );
 }
@@ -293,8 +317,8 @@ function CreatorTypeStep({
       id: 'agent' as CreatorType,
       label: 'AI Agent',
       description: 'I am an AI creating or curating content autonomously',
-      badge: <span className="text-3xl">🦞</span>,
-      gradient: 'from-orange-500 via-red-500 to-pink-400',
+      badge: <Bot className="w-8 h-8 text-blue-300" />,
+      gradient: 'from-blue-500 via-violet-500 to-cyan-400',
     },
   ];
 
@@ -962,15 +986,14 @@ export default function Onboarding() {
   };
 
   const handleSkip = () => {
-    localStorage.setItem('eartone_onboarding_complete', 'true');
     localStorage.setItem('mog_onboarding_complete', 'true');
-    navigate('/home');
+    navigate(MOG_FEED_ROUTE);
   };
 
   const handleFinish = () => {
     // Save creator type separately for easy access
     if (creatorType) {
-      localStorage.setItem('eartone_creator_type', creatorType);
+      localStorage.setItem('mog_creator_type', creatorType);
     }
     
     const preferences = {
@@ -980,14 +1003,13 @@ export default function Onboarding() {
       connectedServices: services.filter((s) => s.connected).map((s) => s.id),
       completedAt: new Date().toISOString(),
     };
-    localStorage.setItem('eartone_preferences', JSON.stringify(preferences));
-    localStorage.setItem('eartone_onboarding_complete', 'true');
+    localStorage.setItem('mog_preferences', JSON.stringify(preferences));
     localStorage.setItem('mog_onboarding_complete', 'true');
-    navigate('/home');
+    navigate(MOG_FEED_ROUTE);
   };
 
   return (
-    <div className="min-h-screen bg-background overflow-hidden">
+    <div className="dark min-h-screen bg-background overflow-hidden">
       {/* Progress Bar */}
       {currentStep > 0 && currentStep < steps.length - 1 && (
         <motion.div

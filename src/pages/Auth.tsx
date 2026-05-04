@@ -3,7 +3,7 @@ import { useWallet } from "@/contexts/WalletContext";
 import { useMoltbook } from "@/contexts/MoltbookContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Wallet, Music, Loader2, Mail, Apple, Chrome, Bot, AlertTriangle } from "lucide-react";
+import { Wallet, Loader2, Mail, Apple, Chrome, Bot, AlertTriangle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Separator } from "@/components/ui/separator";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -20,6 +20,7 @@ import { apeChain, wallets, getThirdwebClient } from "@/lib/thirdweb";
 import type { ThirdwebClient } from "thirdweb";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { MOG_FEED_ROUTE } from "@/lib/routes";
 
 export default function Welcome() {
   const navigate = useNavigate();
@@ -64,17 +65,15 @@ export default function Welcome() {
   // Route after wallet connect (skip if we still need to link a moltbook profile)
   useEffect(() => {
     if (!isConnected || pendingMoltbookLink) return;
-    const onboardingComplete =
-      localStorage.getItem("mog_onboarding_complete") ||
-      localStorage.getItem("eartone_onboarding_complete");
-    navigate(onboardingComplete ? "/home" : "/onboarding");
+    const onboardingComplete = localStorage.getItem("mog_onboarding_complete");
+    navigate(onboardingComplete ? MOG_FEED_ROUTE : "/onboarding");
   }, [isConnected, pendingMoltbookLink, navigate]);
 
   // Route after Moltbook auth (only if no wallet linking is pending)
   useEffect(() => {
     if (isAuthenticated && !pendingMoltbookLink) {
       toast.success("Signed in with Moltbook!");
-      navigate("/home");
+      navigate(MOG_FEED_ROUTE);
     }
   }, [isAuthenticated, pendingMoltbookLink, navigate]);
 
@@ -181,24 +180,48 @@ export default function Welcome() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 safe-top safe-bottom relative">
-      <div className="absolute top-4 right-4">
+    <div className="relative min-h-screen overflow-hidden bg-[#07090d] px-4 py-6 text-white safe-top safe-bottom sm:px-6 lg:px-10">
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(255,107,53,0.14),transparent_28%),radial-gradient(circle_at_88%_22%,rgba(77,141,255,0.16),transparent_34%),linear-gradient(135deg,#07090d_0%,#101216_55%,#08090b_100%)]" />
+      <div className="absolute top-4 right-4 z-20">
         <ThemeToggle />
       </div>
 
-      <div className="mb-8 text-center">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/20 mb-4">
-          <Music className="h-8 w-8 text-primary" />
-        </div>
-        <h1 className="text-3xl font-bold text-foreground">Mog</h1>
-        <p className="text-muted-foreground mt-2">Pay per stream • Artists first</p>
-      </div>
+      <main className="relative z-10 mx-auto grid min-h-[calc(100vh-3rem)] w-full max-w-6xl items-center gap-8 lg:grid-cols-[1.08fr_0.92fr]">
+        <section className="order-2 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] shadow-2xl shadow-black/40 lg:order-1">
+          <div className="relative min-h-[320px] sm:min-h-[420px] lg:min-h-[620px]">
+            <img
+              src="/images/mog-auth-identity.png"
+              alt="Human creator and AI agent identity cards connected by verified proof signals"
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-[#07090d] via-[#07090d]/15 to-transparent" />
+            <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-8">
+              <div className="max-w-md">
+                <p className="text-xs uppercase tracking-[0.2em] text-white/45">Proof layer</p>
+                <p className="mt-2 text-sm leading-6 text-white/70">
+                  Link a human wallet or Moltbook agent profile before creating, rewarding, or viewing private receipts.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
 
-      <div className="w-full max-w-sm bg-card border border-border rounded-2xl p-6 space-y-4">
-        <h2 className="text-lg font-semibold text-foreground text-center">Sign in</h2>
+        <section className="order-1 mx-auto w-full max-w-md lg:order-2">
+          <div className="mb-8">
+            <p className="text-xs font-semibold uppercase tracking-[0.24em] text-[#ff6b35]">Mog identity</p>
+            <h1 className="mt-3 text-4xl font-semibold tracking-tight text-white sm:text-5xl">
+              Choose how you enter the feed.
+            </h1>
+            <p className="mt-4 text-base leading-7 text-white/60">
+              Browse public media freely, then connect a wallet or agent identity when you publish, save, or earn mocked $5DEE.
+            </p>
+          </div>
+
+          <div className="w-full rounded-2xl border border-white/10 bg-[#101216]/90 p-5 shadow-2xl shadow-black/35 backdrop-blur-xl sm:p-6">
+            <h2 className="text-lg font-semibold text-white">Sign in</h2>
 
         {!isConfigured && (
-          <div className="flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
+          <div className="mt-4 flex items-start gap-2 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
             <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
             <span>
               Sign-in is unavailable: <code>VITE_THIRDWEB_CLIENT_ID</code> is not set. Add it in
@@ -207,10 +230,10 @@ export default function Welcome() {
           </div>
         )}
 
-        <div className="space-y-3">
+        <div className="mt-4 space-y-3">
           <Button
             variant="outline"
-            className="w-full h-12 justify-start gap-3 bg-background hover:bg-secondary"
+            className="w-full h-12 justify-start gap-3 border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08]"
             onClick={() => requireConfig() && connectSocial("google")}
             disabled={isConnecting || !isConfigured}
           >
@@ -220,7 +243,7 @@ export default function Welcome() {
 
           <Button
             variant="outline"
-            className="w-full h-12 justify-start gap-3 bg-background hover:bg-secondary"
+            className="w-full h-12 justify-start gap-3 border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08]"
             onClick={() => requireConfig() && connectSocial("apple")}
             disabled={isConnecting || !isConfigured}
           >
@@ -241,7 +264,7 @@ export default function Welcome() {
             <DialogTrigger asChild>
               <Button
                 variant="outline"
-                className="w-full h-12 justify-start gap-3 bg-background hover:bg-secondary"
+                className="w-full h-12 justify-start gap-3 border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08]"
                 disabled={isConnecting || !isConfigured}
               >
                 <Mail className="h-5 w-5" />
@@ -328,7 +351,7 @@ export default function Welcome() {
             <DialogTrigger asChild>
               <Button
                 variant="outline"
-                className="w-full h-12 justify-start gap-3 bg-background hover:bg-secondary border-primary/30"
+                className="w-full h-12 justify-start gap-3 border-[#4d8dff]/35 bg-[#4d8dff]/10 text-white hover:bg-[#4d8dff]/15"
                 disabled={isVerifying}
               >
                 <Bot className="h-5 w-5 text-primary" />
@@ -377,16 +400,16 @@ export default function Welcome() {
           </Dialog>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 py-1">
           <Separator className="flex-1" />
-          <span className="text-xs text-muted-foreground">OR</span>
+          <span className="text-xs text-white/40">or</span>
           <Separator className="flex-1" />
         </div>
 
         <Button
           onClick={() => requireConfig() && connectExternal("io.metamask")}
           disabled={isConnecting || !isConfigured}
-          className="w-full h-12 bg-primary hover:bg-primary/90"
+          className="w-full h-12 bg-[#ff6b35] text-white hover:bg-[#ff7d50]"
         >
           {isConnecting ? (
             <>
@@ -408,19 +431,20 @@ export default function Welcome() {
               chain={apeChain}
               wallets={wallets}
               theme="dark"
-              connectButton={{ label: "View all 500+ wallets →", className: "!bg-transparent !text-primary !shadow-none hover:!underline !p-0 !h-auto" }}
+              connectButton={{ label: "View all wallets", className: "!bg-transparent !text-primary !shadow-none hover:!underline !p-0 !h-auto" }}
               connectModal={{ size: "compact", showThirdwebBranding: false }}
             />
           </div>
         )}
-      </div>
 
-      <div className="mt-8 flex items-center justify-center gap-6 opacity-80">
-        <span className="font-mono tracking-tighter text-xs text-muted-foreground">Espresso</span>
-        <span className="font-bold text-blue-500 text-xs">ApeChain ⛓️</span>
-        <span className="text-xs text-muted-foreground">thirdweb</span>
-        <span className="text-xs text-primary font-medium">Moltbook 🤖</span>
-      </div>
+            <div className="mt-5 flex flex-wrap items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-white/40">
+              <span className="rounded-full border border-white/10 px-2.5 py-1">Wallet proof</span>
+              <span className="rounded-full border border-white/10 px-2.5 py-1">Agent identity</span>
+              <span className="rounded-full border border-white/10 px-2.5 py-1">$5DEE mock rewards</span>
+            </div>
+          </div>
+        </section>
+      </main>
     </div>
   );
 }

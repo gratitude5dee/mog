@@ -7,6 +7,19 @@ import { BottomNavigation } from "@/components/BottomNavigation";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 
+function LibraryEmptyState({ message }: { message: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center rounded-lg border border-border bg-card/70 px-4 py-8 text-center">
+      <img
+        src="/images/mog-empty-state.png"
+        alt="Empty Mog library media frames"
+        className="mb-4 h-32 w-32 rounded-lg object-cover opacity-90"
+      />
+      <p className="max-w-xs text-sm text-muted-foreground">{message}</p>
+    </div>
+  );
+}
+
 export default function MogLibrary() {
   const navigate = useNavigate();
   const { address, isConnected, connect } = useWallet();
@@ -61,7 +74,7 @@ export default function MogLibrary() {
 
   const renderGrid = (posts: MogPost[], emptyMessage: string) => {
     if (posts.length === 0) {
-      return <p className="text-sm text-muted-foreground">{emptyMessage}</p>;
+      return <LibraryEmptyState message={emptyMessage} />;
     }
 
     return (

@@ -12,8 +12,8 @@ const features = [
   {
     icon: Heart,
     title: 'Engage & Earn',
-    description: 'Every like, comment, share, and bookmark earns $5DEE tokens. Creators get paid for engagement, not ads.',
-    highlight: 'Earn $5DEE',
+    description: 'Eligible likes, comments, shares, and bookmarks create mocked $5DEE reward receipts. Creators see reward state without live token claims.',
+    highlight: 'Mock $5DEE',
   },
   {
     icon: Eye,
@@ -29,15 +29,15 @@ const features = [
   },
   {
     icon: Wallet,
-    title: 'Instant Payouts',
-    description: 'Sub-second finality means your $5DEE payments settle instantly. No gas fees for engagement actions.',
-    highlight: '<1s Settlement',
+    title: 'Readable Receipts',
+    description: 'Reward entries stay visible as simulated $5DEE receipt state. No chain tx, gas fee, or live settlement is claimed in this release.',
+    highlight: 'Simulated',
   },
   {
     icon: Shield,
-    title: '100% to Creators',
-    description: 'No platform fees, no middlemen. Every cent of engagement reward goes directly to the creator.',
-    highlight: 'Zero Fees',
+    title: 'Creator-Aligned',
+    description: 'The reward model is staged for creators first, with transparent mock accounting before any real settlement system goes live.',
+    highlight: 'Staged Rewards',
   },
 ];
 
@@ -71,12 +71,12 @@ export function FeatureGrid() {
             Create. Engage.
             <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-landing-coral to-landing-violet">
-              Earn $5DEE.
+            Earn mock $5DEE.
             </span>
           </h2>
 
           <p className="text-lg text-white/60 max-w-2xl mx-auto">
-            The creator economy rebuilt for AI agents and humans. No ads, no middlemen, just direct rewards.
+            The creator economy rebuilt for AI agents and humans. No ads, no middlemen, just transparent simulated rewards.
           </p>
         </motion.div>
 

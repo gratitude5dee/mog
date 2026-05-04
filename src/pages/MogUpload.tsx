@@ -65,6 +65,16 @@ function getHumanFriendlyError(error: unknown): string {
   return "Something went wrong. Please retry.";
 }
 
+function CreateEmptyVisual({ alt }: { alt: string }) {
+  return (
+    <img
+      src="/images/mog-empty-state.png"
+      alt={alt}
+      className="mx-auto h-24 w-24 rounded-lg object-cover opacity-90"
+    />
+  );
+}
+
 export default function MogUpload() {
   const navigate = useNavigate();
   const { address, isConnected, connect } = useWallet();
@@ -76,7 +86,7 @@ export default function MogUpload() {
   }, [isConnected]);
 
   const [contentType, setContentType] = useState<ContentType>("video");
-  const savedCreatorType = localStorage.getItem("eartone_creator_type") as CreatorType | null;
+  const savedCreatorType = localStorage.getItem("mog_creator_type") as CreatorType | null;
   const storedAgent = localStorage.getItem("moltbook_agent");
   const parsedAgent = (() => {
     if (!storedAgent) return null;
@@ -113,7 +123,7 @@ export default function MogUpload() {
   const [createError, setCreateError] = useState<string | null>(null);
 
   useEffect(() => {
-    localStorage.setItem("eartone_creator_type", creatorType);
+    localStorage.setItem("mog_creator_type", creatorType);
   }, [creatorType]);
 
   useEffect(() => {
@@ -166,24 +176,46 @@ export default function MogUpload() {
     }
   };
 
-  const uploadToStorage = async (uploadFile: Blob | File, wallet: string, extensionHint?: string): Promise<string> => {
+  const uploadToStorage = async (
+    uploadFile: Blob | File,
+    wallet: string,
+    contentKind: "image" | "video",
+    extensionHint?: string,
+  ): Promise<string> => {
     const extension =
       extensionHint ||
       (uploadFile instanceof File ? uploadFile.name.split(".").pop() : undefined) ||
       "bin";
-    const fileName = `${Date.now()}-${Math.random().toString(36).slice(2)}.${extension}`;
-    const filePath = `${wallet.toLowerCase()}/${fileName}`;
+    const walletAddress = wallet.toLowerCase();
+    const mimeType = uploadFile.type || (contentKind === "video" ? "video/mp4" : "image/png");
+    const fileName = uploadFile instanceof File ? uploadFile.name : `generated.${extension}`;
+    const walletProof = await requestWalletProof(walletAddress, `mog_upload_intent:${contentKind}`);
 
-    const { error: uploadErrorInner } = await supabase.storage.from("mog-media").upload(filePath, uploadFile);
+    const { data: intent, error: intentError } = await supabase.functions.invoke("mog-upload-intent", {
+      body: {
+        content_type: contentKind,
+        file_name: fileName,
+        mime_type: mimeType,
+        size_bytes: uploadFile.size,
+        wallet_address: walletAddress,
+        wallet_proof: walletProof,
+      },
+    });
+
+    if (intentError || !intent?.success) {
+      throw new Error(intentError?.message || intent?.error || "Upload intent failed");
+    }
+
+    const { error: uploadErrorInner } = await supabase.storage
+      .from(intent.bucket)
+      .uploadToSignedUrl(intent.path, intent.token, uploadFile, {
+        contentType: mimeType,
+      });
     if (uploadErrorInner) {
       throw new Error(uploadErrorInner.message || "Media upload failed");
     }
 
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from("mog-media").getPublicUrl(filePath);
-
-    return publicUrl;
+    return intent.public_url;
   };
 
   const publishMog = async (payload: {
@@ -255,7 +287,7 @@ export default function MogUpload() {
       let mediaUrl: string | null = null;
       if (contentType !== "article" && file) {
         setUploadProgress(45);
-        mediaUrl = await uploadToStorage(file, address!);
+        mediaUrl = await uploadToStorage(file, address!, contentType);
       }
 
       setUploadProgress(75);
@@ -283,8 +315,8 @@ export default function MogUpload() {
 
   const handleGenerate = async () => {
     resetCreateError();
-    if (!sourceImage) {
-      toast.error("Please upload a source image first");
+    if (!address) {
+      toast.error("Please connect your wallet first");
       return;
     }
 
@@ -293,49 +325,49 @@ export default function MogUpload() {
       return;
     }
 
+    if (generationType === "video" && !sourceImage) {
+      toast.error("Please upload a source image for video generation");
+      return;
+    }
+
     setGenerating(true);
 
     try {
-      const reader = new FileReader();
-      const sourceBase64 = await new Promise<string>((resolve) => {
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.readAsDataURL(sourceImage);
+      const sourceBase64 = sourceImage
+        ? await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.onerror = () => reject(new Error("Could not read source image"));
+            reader.readAsDataURL(sourceImage);
+          })
+        : null;
+
+      const walletAddress = address!.toLowerCase();
+      const walletProof = await requestWalletProof(walletAddress, `mog_generate:${generationType}`);
+      const { data, error } = await supabase.functions.invoke("mog-generate", {
+        body: {
+          generation_type: generationType,
+          prompt: prompt.trim(),
+          source_image_data_url: sourceBase64,
+          wallet_address: walletAddress,
+          wallet_proof: walletProof,
+        },
       });
 
-      if (generationType === "image") {
-        const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model: "google/gemini-2.5-flash-image",
-            messages: [
-              {
-                role: "user",
-                content: [
-                  { type: "text", text: prompt.trim() },
-                  { type: "image_url", image_url: { url: sourceBase64 } },
-                ],
-              },
-            ],
-            modalities: ["image", "text"],
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error("Failed to generate image");
-        }
-
-        const data = await response.json();
-        const generatedImageUrl = data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-        if (!generatedImageUrl) {
-          throw new Error("No generated image returned");
-        }
-
-        setGeneratedPreview(generatedImageUrl);
-        toast.success("Image generated");
-      } else {
-        toast.info("Video generation is coming soon. Use image generation for now.");
+      if (error || !data?.success) {
+        throw new Error(error?.message || data?.error || "Failed to generate content");
       }
+
+      if (data.status === "queued") {
+        throw new Error("FAL generation is still processing. Try again shortly.");
+      }
+
+      if (!data.asset_url) {
+        throw new Error("No generated asset returned");
+      }
+
+      setGeneratedPreview(data.asset_url);
+      toast.success(generationType === "video" ? "Video generated with FAL" : "Image generated with FAL");
     } catch (error) {
       const message = getHumanFriendlyError(error);
       setCreateError(message);
@@ -354,11 +386,7 @@ export default function MogUpload() {
       await validateUpload("create");
       setCreateProgress(20);
 
-      const response = await fetch(generatedPreview!);
-      const blob = await response.blob();
-      setCreateProgress(45);
-
-      const mediaUrl = await uploadToStorage(blob, address!, generationType === "video" ? "mp4" : "png");
+      const mediaUrl = generatedPreview;
       setCreateProgress(75);
 
       await publishMog({
@@ -493,13 +521,13 @@ export default function MogUpload() {
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="human" id="human" />
                     <Label htmlFor="human" className="flex items-center gap-1 cursor-pointer">
-                      <span className="text-yellow-500">✓</span> Human Creator
+                      Human Creator
                     </Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="agent" id="agent" />
                     <Label htmlFor="agent" className="flex items-center gap-1 cursor-pointer">
-                      🦞 AI Agent
+                      AI Agent
                     </Label>
                   </div>
                 </RadioGroup>
@@ -525,6 +553,7 @@ export default function MogUpload() {
                       </div>
                     ) : (
                       <div className="space-y-2">
+                        <CreateEmptyVisual alt={`Empty ${contentType} upload frame`} />
                         <Upload className="h-10 w-10 mx-auto text-muted-foreground" />
                         <p className="text-sm text-muted-foreground">Tap to select a {contentType}</p>
                       </div>
@@ -624,20 +653,22 @@ export default function MogUpload() {
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="human" id="create-human" />
                     <Label htmlFor="create-human" className="flex items-center gap-1 cursor-pointer">
-                      <span className="text-yellow-500">✓</span> Human Creator
+                      Human Creator
                     </Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="agent" id="create-agent" />
                     <Label htmlFor="create-agent" className="flex items-center gap-1 cursor-pointer">
-                      🦞 AI Agent
+                      AI Agent
                     </Label>
                   </div>
                 </RadioGroup>
               </div>
 
               <div className="space-y-3">
-                <Label className="text-base font-medium">Source Image</Label>
+                <Label className="text-base font-medium">
+                  {generationType === "video" ? "Source Image" : "Source Image (optional)"}
+                </Label>
                 <input id="source-image-input" type="file" accept="image/*" onChange={handleSourceImageChange} className="hidden" />
                 <div
                   onClick={() => document.getElementById("source-image-input")?.click()}
@@ -650,8 +681,11 @@ export default function MogUpload() {
                     </div>
                   ) : (
                     <div className="space-y-2">
+                      <CreateEmptyVisual alt="Empty source image frame for FAL generation" />
                       <Image className="h-10 w-10 mx-auto text-muted-foreground" />
-                      <p className="text-sm text-muted-foreground">Upload a source image to transform</p>
+                      <p className="text-sm text-muted-foreground">
+                        {generationType === "video" ? "Upload a source image to animate" : "Upload a source image to guide the result"}
+                      </p>
                     </div>
                   )}
                 </div>
@@ -665,7 +699,7 @@ export default function MogUpload() {
                   placeholder={
                     generationType === "video"
                       ? "Describe the motion and scene..."
-                      : "Describe the transformation..."
+                      : "Describe the image Mog should generate..."
                   }
                   rows={3}
                 />
@@ -673,7 +707,7 @@ export default function MogUpload() {
 
               <Button
                 onClick={handleGenerate}
-                disabled={generating || !sourceImage || !prompt.trim()}
+                disabled={generating || !address || (generationType === "video" && !sourceImage) || !prompt.trim()}
                 variant="outline"
                 className="w-full py-5 border-primary text-primary hover:bg-primary/10"
               >

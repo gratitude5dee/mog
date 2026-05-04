@@ -11,6 +11,7 @@ import { useWallet } from "@/contexts/WalletContext";
 import { toast } from "sonner";
 import { formatNumber } from "@/lib/utils";
 import { BottomNavigation } from "@/components/BottomNavigation";
+import { useContentInteraction } from "@/hooks/useContentInteraction";
 
 export default function MogProfile() {
   const { wallet } = useParams<{ wallet: string }>();
@@ -21,6 +22,10 @@ export default function MogProfile() {
   const [likedPosts, setLikedPosts] = useState<MogPost[]>([]);
   const [isFollowing, setIsFollowing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const { performInteraction } = useContentInteraction({
+    contentType: "mog_follow",
+    contentId: wallet?.toLowerCase() || "",
+  });
 
   const isOwnProfile = address?.toLowerCase() === wallet?.toLowerCase();
 
@@ -123,16 +128,10 @@ export default function MogProfile() {
 
     try {
       if (newFollowingState) {
-        await supabase.functions.invoke('content-interact', {
-          body: { action_type: 'follow', content_type: 'mog_follow', content_id: wallet?.toLowerCase() },
-          headers: { 'x-wallet-address': address.toLowerCase() }
-        });
+        await performInteraction('follow');
         toast.success('Following');
       } else {
-        await supabase.functions.invoke('content-interact', {
-          body: { action_type: 'unfollow', content_type: 'mog_follow', content_id: wallet?.toLowerCase() },
-          headers: { 'x-wallet-address': address.toLowerCase() }
-        });
+        await performInteraction('unfollow');
         toast.success('Unfollowed');
       }
 
@@ -248,7 +247,7 @@ export default function MogProfile() {
               <PostsGrid posts={likedPosts} onPostClick={(id) => navigate(`/mog/post/${id}`)} />
             </TabsContent>
             <TabsContent value="bookmarks" className="mt-0">
-              <p className="text-center text-muted-foreground py-12">Bookmarked posts will appear here</p>
+              <ProfileEmptyState message="Bookmarked posts will appear here" />
             </TabsContent>
           </>
         )}
@@ -259,11 +258,22 @@ export default function MogProfile() {
   );
 }
 
+function ProfileEmptyState({ message }: { message: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center px-4 py-12 text-center">
+      <img
+        src="/images/mog-empty-state.png"
+        alt="Empty Mog profile media frames"
+        className="mb-4 h-32 w-32 rounded-lg object-cover opacity-90"
+      />
+      <p className="text-muted-foreground">{message}</p>
+    </div>
+  );
+}
+
 function PostsGrid({ posts, onPostClick }: { posts: MogPost[]; onPostClick: (id: string) => void }) {
   if (posts.length === 0) {
-    return (
-      <p className="text-center text-muted-foreground py-12">No posts yet</p>
-    );
+    return <ProfileEmptyState message="No posts yet" />;
   }
 
   return (

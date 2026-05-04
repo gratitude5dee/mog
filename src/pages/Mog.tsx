@@ -9,10 +9,23 @@ import { AlertCircle, Loader2, RefreshCcw } from "lucide-react";
 import { useMogPosts } from "@/hooks/useMogPosts";
 import { Button } from "@/components/ui/button";
 
+function MogEmptyVisual({ alt }: { alt: string }) {
+  return (
+    <div className="relative h-48 w-48 overflow-hidden rounded-lg border border-white/10 bg-white/[0.03] shadow-2xl shadow-black/40 sm:h-56 sm:w-56">
+      <img
+        src="/images/mog-empty-state.png"
+        alt={alt}
+        className="h-full w-full object-cover"
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+    </div>
+  );
+}
+
 export default function Mog() {
   const navigate = useNavigate();
   const { address } = useWallet();
-  const [feedType, setFeedType] = useState<FeedType>('foryou');
+  const [feedType, setFeedType] = useState<FeedType>('all');
   const [currentIndex, setCurrentIndex] = useState(0);
   const containerRef = useRef<HTMLDivElement>(null);
   const loadMoreRef = useRef<HTMLDivElement>(null);
@@ -118,9 +131,10 @@ export default function Mog() {
       >
         {isError && (
           <div className="h-screen flex flex-col items-center justify-center gap-4 px-8 text-center bg-black">
-            <AlertCircle className="h-10 w-10 text-destructive" />
+            <MogEmptyVisual alt="" />
+            <AlertCircle className="h-9 w-9 text-destructive" />
             <p className="text-lg font-medium text-white">Feed failed to load</p>
-            <p className="text-white/70 text-sm">
+            <p className="max-w-sm text-sm text-white/70">
               {(error as Error | undefined)?.message || "Please try again."}
             </p>
             <Button onClick={() => refetch()} className="gap-2">
@@ -155,22 +169,23 @@ export default function Mog() {
           </div>
         )}
 
-        {posts.length === 0 && (
+        {!isError && posts.length === 0 && (
           <div className="h-screen flex flex-col items-center justify-center gap-4 px-8 text-center bg-black">
+            <MogEmptyVisual alt="Empty Mog media frames waiting for creator posts" />
             <p className="text-xl font-medium text-white">
-              {feedType === 'following' ? 'No posts from people you follow' : 'No posts yet'}
+              {feedType === 'following' ? 'No posts from people you follow' : feedType === "all" ? "No posts yet" : `No ${feedType} posts yet`}
             </p>
-            <p className="text-white/60">
+            <p className="max-w-sm text-white/60">
               {feedType === 'following' 
                 ? 'Follow creators to see their content here' 
                 : 'Be the first to share something!'}
             </p>
-            <button
+            <Button
               onClick={() => navigate('/mog/upload')}
-              className="bg-landing-coral text-white px-6 py-3 rounded-full font-medium mt-4 hover:bg-landing-coral-light transition-colors"
+              className="mt-4 bg-landing-coral px-6 text-white hover:bg-landing-coral-light"
             >
               Create a Mog
-            </button>
+            </Button>
           </div>
         )}
       </div>

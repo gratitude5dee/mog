@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Search, TrendingUp, Hash, User } from "lucide-react";
+import { ArrowLeft, Search, TrendingUp, Hash } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { supabase } from "@/integrations/supabase/client";
 import { MogPost } from "@/types/mog";
@@ -154,6 +154,9 @@ export default function MogSearch() {
                     <span className="text-sm text-muted-foreground">#{index + 1}</span>
                   </button>
                 ))}
+                {trendingHashtags.length === 0 && (
+                  <SearchEmptyState message="Trends will appear after creators publish more Mogs." />
+                )}
               </div>
             </div>
           </div>
@@ -162,9 +165,7 @@ export default function MogSearch() {
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
           </div>
         ) : results.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">No results for "{query}"</p>
-          </div>
+          <SearchEmptyState message={`No results for "${query}"`} />
         ) : (
           <div className="grid grid-cols-3 gap-0.5">
             {results.map((post) => (
@@ -197,6 +198,19 @@ export default function MogSearch() {
       </div>
 
       <BottomNavigation />
+    </div>
+  );
+}
+
+function SearchEmptyState({ message }: { message: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center px-4 py-12 text-center">
+      <img
+        src="/images/mog-empty-state.png"
+        alt="Empty Mog search media frames"
+        className="mb-4 h-32 w-32 rounded-lg object-cover opacity-90"
+      />
+      <p className="text-muted-foreground">{message}</p>
     </div>
   );
 }
